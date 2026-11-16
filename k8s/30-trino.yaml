@@ -1,0 +1,90 @@
+# Trino davanti al Postgres della POC (catalogo "postgresql"), senza login, visibile solo
+# dentro il cluster (Service ClusterIP). La sola lettura e' garantita dall'utente Postgres
+# ai_reader, la cui password arriva dal Secret "superset-ai-secrets".
+#
+# Memoria: il pod ha un limite di 3 GiB; l'immagine ufficiale dimensiona la memoria Java in
+# percentuale del limite del container. Se supera il limite, Kubernetes riavvia solo il pod.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: trino-catalog
+  namespace: superset-ai
+data:
+  postgresql.properties: |
+    connector.name=postgresql
+    connection-url=jdbc:postgresql://postgres:5432/vendite
+    connection-user=ai_reader
+    connection-password=${ENV:AI_READER_PASSWORD}
+    # Le colonne numeric SENZA precisione (es. importo e margine nelle viste, calcolati con
+    # round(...)) per impostazione predefinita Trino le NASCONDE. Cosi' diventano decimal(38,2).
+    decimal-mapping=allow_overflow
+    decimal-default-scale=2
+    decimal-rounding-mode=HALF_UP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: trino
+  namespace: superset-ai
+  labels:
+    app: trino
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: trino
+  template:
+    metadata:
+      labels:
+        app: trino
+    spec:
+      enableServiceLinks: false
+      containers:
+        - name: trino
+          image: trinodb/trino:482
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: AI_READER_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: superset-ai-secrets, key: AI_READER_PASSWORD }
+          volumeMounts:
+            # Sostituisce i cataloghi di esempio dell'immagine: resta solo "postgresql"
+            - name: catalog
+              mountPath: /etc/trino/catalog
+          # Pronto quando risponde davvero a una query (il CLI e' incluso nell'immagine)
+          readinessProbe:
+            exec:
+              command: ["trino", "--execute", "SELECT 1"]
+            initialDelaySeconds: 20
+            periodSeconds: 15
+            timeoutSeconds: 10
+          livenessProbe:
+            tcpSocket: { port: 8080 }
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            failureThreshold: 5
+          resources:
+            requests: { cpu: 500m, memory: 2Gi }
+            limits: { cpu: 1500m, memory: 3Gi }
+      volumes:
+        - name: catalog
+          configMap:
+            name: trino-catalog
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: trino
+  namespace: superset-ai
+spec:
+  selector:
+    app: trino
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
