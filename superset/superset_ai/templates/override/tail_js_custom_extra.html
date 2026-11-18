@@ -3,4 +3,4 @@
   Superset include questo file in ogni pagina: qui carichiamo il pulsante "AI Assistant"
   e il pannello Text-to-SQL di SQL Lab. Il nonce serve per la Content Security Policy.
 #}
-<script nonce="{% if csp_nonce is defined %}{{ csp_nonce() }}{% endif %}" src="{{ url_for('superset_ai.static', filename='sqllab.js') }}?v=3" defer></script>
+<script nonce="{% if csp_nonce is defined %}{{ csp_nonce() }}{% endif %}" src="{{ ai_static('sqllab.js') }}" defer></script>

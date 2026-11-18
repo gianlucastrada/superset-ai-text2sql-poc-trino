@@ -120,6 +120,6 @@
     </section>
   </main>
 
-  <script nonce="{% if csp_nonce is defined %}{{ csp_nonce() }}{% endif %}" src="{{ url_for('superset_ai.static', filename='assistant.js') }}?v=5"></script>
+  <script nonce="{% if csp_nonce is defined %}{{ csp_nonce() }}{% endif %}" src="{{ ai_static('assistant.js') }}"></script>
 </body>
 </html>

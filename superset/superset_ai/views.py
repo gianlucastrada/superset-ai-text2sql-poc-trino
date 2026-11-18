@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import os
 import re
-from functools import wraps
+from functools import lru_cache, wraps
 from typing import Any, Callable
 
 from flask import Blueprint, jsonify, redirect, render_template, request, url_for
@@ -257,6 +258,23 @@ def _verifica_grafico(
         logger.warning("Grafico '%s': %s | SQL: %s", titolo, risultato["nota"], sql)
     return risultato
 
+
+
+@lru_cache(maxsize=None)
+def _versione_static(filename: str) -> str:
+    """Impronta del contenuto di un file statico: cambia solo se cambia il file."""
+    try:
+        with open(os.path.join(_QUI, "static", filename), "rb") as f:
+            return hashlib.md5(f.read()).hexdigest()[:10]  # noqa: S324 - non e' un uso di sicurezza
+    except OSError:
+        return "0"
+
+
+@ai_bp.app_template_global("ai_static")
+def ai_static(filename: str) -> str:
+    """URL di un file statico dell'estensione con la sua impronta (?v=...): dopo un deploy il
+    browser scarica il file nuovo invece di usare la copia vecchia che ha in cache."""
+    return url_for("superset_ai.static", filename=filename) + "?v=" + _versione_static(filename)
 
 # --------------------------------------------------------------------------- pagine
 
