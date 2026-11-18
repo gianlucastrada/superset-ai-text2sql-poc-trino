@@ -265,6 +265,12 @@
     return li;
   }
 
+  // Id delle dashboard a cui e' collegato un grafico
+  async function dashboardDelGrafico(id) {
+    var r = await api('GET', '/api/v1/chart/' + id);
+    return ((r.result || {}).dashboards || []).map(function (d) { return d.id; });
+  }
+
   async function creaDashboard() {
     var richiesta = $('richiesta').value.trim();
     if (!richiesta) { messaggio($('msgDash'), 'Descrivi la dashboard.', 'err'); return; }
@@ -313,7 +319,10 @@
           .filter(function (c) { return c.slice_name === g.titolo; })[0];
         var riusoCh = !!ch;
         if (ch) {
-          await api('PUT', '/api/v1/chart/' + ch.id, { viz_type: fd.viz_type, params: JSON.stringify(fd) });
+          // Il grafico puo' venire da un'altra dashboard: resta collegato a quella e si collega anche a questa
+          var dashCh = await dashboardDelGrafico(ch.id);
+          if (dashCh.indexOf(dash.id) < 0) dashCh.push(dash.id);
+          await api('PUT', '/api/v1/chart/' + ch.id, { viz_type: fd.viz_type, params: JSON.stringify(fd), dashboards: dashCh });
         } else {
           ch = await api('POST', '/api/v1/chart/', {
             slice_name: g.titolo, viz_type: fd.viz_type, datasource_id: ds.id,
@@ -323,6 +332,19 @@
         li.textContent += riusoCh ? ' aggiornato (riutilizzato).' : (riusoDs ? ' creato (dataset riutilizzato).' : ' creato.');
         if (g.nota) passo('Attenzione, "' + g.titolo + '": ' + g.nota + '\nSQL: ' + g.sql, true);
         creati.push({ id: ch.id, g: g });
+      }
+
+      // Aggiornando una dashboard, i grafici della versione precedente che non sono piu' nel piano vanno
+      // staccati: Superset mostra in fondo alla pagina i grafici collegati ma assenti dal layout.
+      // Restano in Superset e si eliminano con "Pulisci grafici non usati".
+      var nuovi = creati.map(function (e) { return e.id; });
+      var collegati = (await api('GET', '/api/v1/dashboard/' + dash.id + '/charts')).result || [];
+      for (var k = 0; k < collegati.length; k++) {
+        var idVecchio = collegati[k].id || (collegati[k].form_data || {}).slice_id;
+        if (!idVecchio || nuovi.indexOf(idVecchio) >= 0) continue;
+        var altre = (await dashboardDelGrafico(idVecchio)).filter(function (d) { return d !== dash.id; });
+        await api('PUT', '/api/v1/chart/' + idVecchio, { dashboards: altre });
+        passo('Grafico "' + (collegati[k].slice_name || idVecchio) + '" della versione precedente tolto dalla dashboard.');
       }
 
       await api('PUT', '/api/v1/dashboard/' + dash.id, { position_json: JSON.stringify(layout(piano.titolo, creati)) });
