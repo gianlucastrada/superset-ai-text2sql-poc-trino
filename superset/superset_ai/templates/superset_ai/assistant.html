@@ -76,13 +76,12 @@
   <main>
     <section>
       <h2>Domanda &rarr; SQL</h2>
-      <p class="sotto">Scrivi una domanda in italiano sui dati di vendita: il modello genera la query, la verifica e mostra i risultati.</p>
-      <textarea id="domanda" rows="3" placeholder="Es. Quali sono i 10 clienti che hanno speso di piu' nel 2026?"></textarea>
+      <p class="sotto">Scrivi una domanda in italiano sui dati: il modello genera la query, la verifica e mostra i risultati.</p>
+      <textarea id="domanda" rows="3" placeholder="{{ ('Es. ' ~ esempi_domande[0]) if esempi_domande else 'Scrivi una domanda sui dati' }}"></textarea>
       <div class="esempi" id="esempiSql">
-        <button type="button">Fatturato mensile degli ultimi 12 mesi</button>
-        <button type="button">Top 10 prodotti per margine</button>
-        <button type="button">Fatturato per regione e canale</button>
-        <button type="button">Percentuale di ordini annullati per canale</button>
+        {%- for e in esempi_domande %}
+        <button type="button">{{ e }}</button>
+        {%- endfor %}
       </div>
       <div class="riga">
         <button id="btnSql" type="button">Genera ed esegui</button>
@@ -105,11 +104,11 @@
     <section>
       <h2>Dashboard al volo</h2>
       <p class="sotto">Descrivi la dashboard: il modello progetta i grafici, ne verifica le query e Superset crea dataset, grafici e dashboard.</p>
-      <textarea id="richiesta" rows="3" placeholder="Es. Una dashboard sull'andamento delle vendite 2026 per categoria e area geografica"></textarea>
+      <textarea id="richiesta" rows="3" placeholder="{{ ('Es. ' ~ esempi_dashboard[0]) if esempi_dashboard else 'Descrivi la dashboard: misure, grafici, periodo' }}"></textarea>
       <div class="esempi" id="esempiDash">
-        <button type="button">Panoramica vendite: KPI principali, andamento mensile, categorie e canali</button>
-        <button type="button">Analisi clienti: aziende vs privati, top clienti e aree geografiche</button>
-        <button type="button">Margini per categoria e prodotto, con andamento mensile del margine</button>
+        {%- for e in esempi_dashboard %}
+        <button type="button">{{ e }}</button>
+        {%- endfor %}
       </div>
       <div class="riga">
         <button id="btnDash" type="button">Crea dashboard</button>

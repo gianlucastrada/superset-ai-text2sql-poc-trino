@@ -21,10 +21,10 @@ Elenco delle prove da fare sulla POC, con i **valori attesi** già calcolati sui
 | 0.3 | Login | `.\scripts\forward.ps1`, poi `http://localhost:8088`, utente `admin` (password: `.\scripts\password.ps1`) | home di Superset | |
 | 0.4 | Menu e pulsanti | dopo il login | menu **AI > AI Assistant**; pulsante **AI Assistant** in basso a destra | |
 | 0.5 | Verifica connessione | pagina `/ai/`, pulsante **Verifica connessione** | "OK", modello presente, database raggiungibile | |
-| 0.6 | Schema aggiornato | `http://localhost:8088/ai/api/schema?aggiorna=1` | compaiono `v_vendite` ("Contiene SOLO le vendite valide"), `v_vendite_tutte`, `v_ordini` ("Una riga per ORDINE") e in fondo **PERIODI DI RIFERIMENTO** | |
+| 0.6 | Schema aggiornato | `http://localhost:8088/ai/api/schema?aggiorna=1` | compaiono `v_vendite` ("Contiene SOLO le vendite valide"), `v_vendite_tutte`, `v_ordini` ("Una riga per ORDINE, solo ordini VALIDI"), `v_ordini_tutti` e in fondo **PERIODI DI RIFERIMENTO**. Le tabelle di base (`ordini`, `righe_ordine`, `clienti`, `prodotti`) **non** compaiono: al modello si mostrano solo le viste | |
 | 0.7 | Protezione senza login | finestra anonima su `http://localhost:8088/ai/` | rimanda al login | |
 
-> Se in 0.6 manca `v_ordini` o il blocco PERIODI, il database o l'immagine non sono aggiornati: esegui `.\scripts\aggiorna-db.ps1` e `.\scripts\deploy.ps1`.
+> Se in 0.6 manca `v_ordini_tutti` o il blocco PERIODI, il database o l'immagine non sono aggiornati: esegui `.\scripts\aggiorna-db.ps1` e `.\scripts\deploy.ps1`.
 
 ---
 
@@ -35,11 +35,11 @@ Pagina `/ai/`, riquadro **Domanda → SQL**, pulsante **Genera ed esegui**. Anno
 | # | Domanda | Valore atteso | Cosa controllare | Tempo | Esito |
 |---|---|---|---|---|---|
 | 1.1 | Qual è il fatturato totale? | **6.514.757,23 €** | 1 riga | | |
-| 1.2 | Quanti ordini abbiamo? | **4.899** | conta ordini distinti, non righe (le righe sono circa 9.400) | | |
+| 1.2 | Quanti ordini abbiamo? | **4.899** | conta ordini distinti, non righe (le righe sono circa 9.400), e senza gli annullati: **5.189** = annullati compresi, ❌ | | |
 | 1.3 | Qual è lo scontrino medio per ordine? | **1.329,81 €** | 1 riga; media dei totali per ordine (due livelli), non media delle righe | | |
 | 1.4 | Qual è il margine totale e la percentuale di margine? | **2.000.116,13 €** e **30,7%** | | | |
 | 1.5 | Quanti clienti hanno fatto almeno un acquisto? | **400** | | | |
-| 1.6 | Quanti ordini fa in media ogni cliente? | **12,25** | media a due livelli | | |
+| 1.6 | Quanti ordini fa in media ogni cliente? | **12,25** | media a due livelli (4.899 ordini validi / 400 clienti); **12,97** = annullati compresi, ❌ | | |
 | 1.7 | Qual è lo sconto medio applicato? | **4,70%** | | | |
 
 ## 2. Classifiche e raggruppamenti
@@ -75,12 +75,12 @@ L'ultima data nei dati è il **31/10/2026**: i periodi relativi si calcolano da 
 
 | # | Domanda | Atteso | Errore tipico da cercare | Esito |
 |---|---|---|---|---|
-| 4.1 | Qual è la percentuale di ordini annullati? | **5,6%** (290 ordini su 5.189) | deve usare `v_ordini` o la tabella `ordini`: in `v_vendite` gli annullati non ci sono e il risultato sarebbe 0% | |
+| 4.1 | Qual è la percentuale di ordini annullati? | **5,6%** (290 ordini su 5.189) | deve usare `v_ordini_tutti`: in `v_vendite` e `v_ordini` gli annullati non ci sono e il risultato sarebbe 0% | |
 | 4.2 | Percentuale di ordini annullati per canale | Agente 4,6% · Negozio 5,8% · Online 5,7% · Telefono 5,3% | come 4.1 | |
 | 4.3 | Quanti ordini sono stati resi? | **216** (non 394: quelle sono le righe d'ordine) | "Reso" è uno stato a parte, diverso da "Annullato" | |
 | 4.4 | Scontrino medio per canale | Agente 1.698,40 · Negozio 1.364,66 · Telefono 1.283,62 · Online 1.253,65 | media a due livelli per canale | |
-| 4.5 | Fatturato medio mensile | circa **542.896 €** (6.514.757 / 12) | media dei totali mensili, non media delle righe | |
-| 4.6 | Domanda ambigua: "Come vanno le vendite?" | una risposta ragionevole (es. andamento mensile) e una spiegazione che dichiari l'interpretazione | il modello non deve inventare tabelle o colonne | |
+| 4.5 | Fatturato medio mensile | circa **542.896 €** (6.514.757 / 12) | media dei totali mensili, non media delle righe; **un solo valore** (12 righe, una per mese, = ❌) | |
+| 4.6 | Domanda ambigua: "Come vanno le vendite?" | una risposta ragionevole (es. andamento mensile) e una spiegazione che dichiari l'interpretazione | il modello non deve inventare tabelle o colonne, né unire `v_vendite` con altre tabelle (la JOIN gonfia i numeri: es. 16,7 M di fatturato invece di 6,51 M) | |
 | 4.7 | Domanda fuori tema: "Che tempo fa domani?" | errore gestito o query innocua, nessun crash | | |
 
 ## 5. Sicurezza
@@ -147,8 +147,8 @@ Le stesse domande, ma con **Motore: Trino** scelto in alto nella pagina AI. I va
 
 | # | Prova | Atteso | Esito |
 |---|---|---|---|
-| 10.1 | `.\scripts\trino.ps1 stato` | 7 tabelle/viste tra cui `v_vendite`, `v_vendite_tutte`, `v_ordini`; in `DESCRIBE v_vendite` ci sono `importo` e `margine` di tipo `decimal(38,2)` | |
-| 10.2 | Pagina `/ai/`, **Verifica connessione** | riga "Trino raggiungibile: 7 tabelle/viste", senza ATTENZIONE | |
+| 10.1 | `.\scripts\trino.ps1 stato` | 8 tabelle/viste tra cui `v_vendite`, `v_vendite_tutte`, `v_ordini`, `v_ordini_tutti`; in `DESCRIBE v_vendite` ci sono `importo` e `margine` di tipo `decimal(38,2)` | |
+| 10.2 | Pagina `/ai/`, **Verifica connessione** | riga "Trino raggiungibile: 8 tabelle/viste", senza ATTENZIONE | |
 | 10.3 | Menu **Motore** in alto: scegli Trino | accanto a "database" compare *Vendite via Trino (trino)*; la scelta resta dopo il refresh | |
 | 10.4 | `http://localhost:8088/ai/api/schema?motore=trino&aggiorna=1` | tipi `decimal` e `varchar` (non `numeric`/`text`); periodi scritti `DATE '…'` | |
 | 10.5 | *Qual è il fatturato totale?* | **6.514.757,23 €** | |
@@ -203,3 +203,17 @@ FROM v_vendite GROUP BY mese ORDER BY mese;
 SELECT ROUND(100.0 * COUNT(*) FILTER (WHERE stato = 'Annullato') / COUNT(*), 1) AS perc_annullati
 FROM ordini;
 ```
+
+---
+
+## Registro modifiche
+
+| Data | Modifica | Prove da rifare |
+|---|---|---|
+| 18/11/2026 | `v_ordini` ora contiene solo gli ordini **validi** (annullati esclusi); nuova vista `v_ordini_tutti` con tutti gli stati, per le analisi sugli annullati | 1.2, 1.6, 4.1, 4.2, 4.3, 7.5, 10.9, 10.10 |
+| 18/11/2026 | Commenti sulle colonne `regione` (regione italiana) e `area` (macro-area) | 2.6, 7.2 |
+| 18/11/2026 | Al modello si mostrano solo le viste, non le tabelle di base (`AI_SOLO_VISTE=true` in `config\vendite\database.env`) | 4.6 e le dashboard della sezione 7 |
+| 18/11/2026 | Regola con esempio: "media mensile" = un solo valore (media dei totali mensili) | 4.5 |
+| 18/11/2026 | **Codice indipendente dal database**: nessun nome di tabella nel codice. Le regole di business sulle vendite sono in `config\vendite\istruzioni.md`, gli esempi della pagina in `config\vendite\esempi-*.txt`. Il controllo delle JOIN ora vale per qualsiasi schema: verifica sul database se la colonna di collegamento è unica e segnala le JOIN che moltiplicano le righe. Il vecchio controllo su `COUNT(*)` nelle viste delle vendite è stato tolto: lo sostituiscono le viste e le istruzioni | 0.4 (pulsanti di esempio presenti), 1.2, 1.6, 4.6, 7.1, 10.2 |
+
+Per applicarle: `.\scripts\aggiorna-db.ps1` (viste) e `.\scripts\deploy.ps1` (nuova immagine con prompt e controlli; carica anche `config\vendite`).

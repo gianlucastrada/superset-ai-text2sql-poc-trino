@@ -14,7 +14,7 @@ $sql | & kubectl exec -i -n $Ns deploy/postgres -- psql -U postgres -d vendite -
 if ($LASTEXITCODE -ne 0) { throw "Aggiornamento del database fallito." }
 
 Write-Host "`n==> Verifica"
-& kubectl exec -n $Ns deploy/postgres -- psql -U postgres -d vendite -At -c "SELECT 'v_vendite (senza annullati): ' || round(sum(importo)) FROM v_vendite UNION ALL SELECT 'v_vendite_tutte (con annullati): ' || round(sum(importo)) FROM v_vendite_tutte UNION ALL SELECT 'v_ordini (ordini annullati, atteso 290): ' || count(*) FROM v_ordini WHERE stato = 'Annullato'"
+& kubectl exec -n $Ns deploy/postgres -- psql -U postgres -d vendite -At -c "SELECT 'v_vendite (senza annullati): ' || round(sum(importo)) FROM v_vendite UNION ALL SELECT 'v_vendite_tutte (con annullati): ' || round(sum(importo)) FROM v_vendite_tutte UNION ALL SELECT 'v_ordini (ordini validi, atteso 4899): ' || count(*) FROM v_ordini UNION ALL SELECT 'v_ordini_tutti (ordini annullati, atteso 290): ' || count(*) FROM v_ordini_tutti WHERE stato = 'Annullato'"
 
 Write-Host "`n==> Riavvio Superset (rilegge lo schema per l'IA)"
 & kubectl rollout restart deployment/superset -n $Ns

@@ -15,6 +15,11 @@
 .PARAMETER Forward
   Alla fine avvia il port-forward su http://localhost:8088
 
+.PARAMETER Config
+  Cartella con la configurazione del database (default: config\vendite): database.env
+  (impostazioni CHIAVE=valore), istruzioni.md (regole di business per il modello),
+  esempi-domande.txt ed esempi-dashboard.txt (pulsanti di esempio). Tutti facoltativi.
+
 .PARAMETER SenzaTrino
   Non avvia Trino (e lo rimuove se c'era): l'AI usa solo PostgreSQL diretto.
   Trino parte comunque solo se il cluster ha almeno 6 GB di memoria.
@@ -24,6 +29,7 @@
   .\scripts\deploy.ps1 -Forward
   .\scripts\deploy.ps1 -OllamaUrl http://host.docker.internal:11435
   .\scripts\deploy.ps1 -SenzaTrino
+  .\scripts\deploy.ps1 -Config config\altro-database
 #>
 [CmdletBinding()]
 param(
@@ -31,7 +37,8 @@ param(
   [string]$Model = "qwen3.6:35b",
   [switch]$SkipBuild,
   [switch]$Forward,
-  [switch]$SenzaTrino
+  [switch]$SenzaTrino,
+  [string]$Config = "config\vendite"
 )
 
 $ErrorActionPreference = "Stop"
@@ -142,9 +149,30 @@ if ($conTrino) {
   $trinoAi = ""
   $trinoSuperset = ""
 }
-Apply-Yaml @("create", "configmap", "superset-ai-config", "-n", $Ns,
+$cfgArgs = @("create", "configmap", "superset-ai-config", "-n", $Ns,
   "--from-literal=OLLAMA_URL=$OllamaUrl", "--from-literal=OLLAMA_MODEL=$Model",
   "--from-literal=AI_TRINO_URI=$trinoAi", "--from-literal=AI_TRINO_SUPERSET_URI=$trinoSuperset")
+# Configurazione del database: impostazioni, regole di business ed esempi (nessuno e' obbligatorio)
+$cfgDir = if ([System.IO.Path]::IsPathRooted($Config)) { $Config } else { Join-Path $Root $Config }
+if (-not (Test-Path $cfgDir)) { throw "Cartella di configurazione non trovata: $cfgDir" }
+Write-Host "Configurazione del database: $cfgDir"
+$envFile = Join-Path $cfgDir "database.env"
+if (Test-Path $envFile) {
+  foreach ($riga in Get-Content $envFile) {
+    $r = $riga.Trim()
+    if ($r -and -not $r.StartsWith("#") -and $r.Contains("=")) { $cfgArgs += "--from-literal=$r" }
+  }
+}
+$testi = [ordered]@{
+  "istruzioni.md"        = "AI_ISTRUZIONI"
+  "esempi-domande.txt"   = "AI_ESEMPI_DOMANDE"
+  "esempi-dashboard.txt" = "AI_ESEMPI_DASHBOARD"
+}
+foreach ($nomeFile in $testi.Keys) {
+  $percorso = Join-Path $cfgDir $nomeFile
+  if (Test-Path $percorso) { $cfgArgs += "--from-file=$($testi[$nomeFile])=$percorso" }
+}
+Apply-Yaml $cfgArgs
 
 # 5. Postgres
 Write-Host "`n==> Postgres"

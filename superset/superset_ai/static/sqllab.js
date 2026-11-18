@@ -92,7 +92,7 @@
     '<h3>Text-to-SQL</h3>' +
     '<p class="sai-db">Descrivi la query in italiano.</p>' +
     '<p class="sai-mot-riga" style="display:none">Motore <select class="sai-mot"></select></p>' +
-    '<textarea rows="3" class="sai-q" placeholder="Es. fatturato per categoria nel 2026, escludendo gli annullati"></textarea>' +
+    '<textarea rows="3" class="sai-q" placeholder="Scrivi una domanda sui dati"></textarea>' +
     '<div class="sai-row"><button type="button" class="sai-btn sai-gen">Genera SQL</button><span class="sai-t"></span></div>' +
     '<div class="sai-msg"></div>' +
     '<pre class="sai-sql" style="display:none"></pre>' +
@@ -182,6 +182,7 @@
     }
   });
   function mostraInfo() {
+    if (info.esempio) q('.sai-q').placeholder = 'Es. ' + info.esempio;
     q('.sai-db').textContent = 'Database: ' + info.database_nome + ' (dialetto ' + info.dialetto + ') - modello ' +
       info.modello + '. Descrivi la query in italiano.';
     var sel = q('.sai-mot');

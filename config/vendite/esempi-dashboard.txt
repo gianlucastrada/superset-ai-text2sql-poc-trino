@@ -1,0 +1,3 @@
+Panoramica vendite: KPI principali, andamento mensile, categorie e canali
+Analisi clienti: aziende vs privati, top clienti e aree geografiche
+Margini per categoria e prodotto, con andamento mensile del margine

@@ -18,12 +18,14 @@ A customised **Apache Superset 6.1** that turns questions written in natural lan
 
 1. The extension describes the database schema to the model: tables, views, column comments, typical values, date ranges and pre-computed reference periods ("last month", "last quarter").
 2. The model answers with **structured JSON** (an Ollama JSON schema), either a SQL query or a dashboard plan with one query per chart.
-3. Every query is checked before it runs: a single `SELECT` only (parsed with `sqlglot` in the engine's dialect), plus a small logic lint for typical model mistakes (for example `COUNT(*)` on a per-line view, or `GROUP BY` columns that are not returned). On Trino, common PostgreSQL habits (`::` casts, `ILIKE`, dates written as plain strings, `INTERVAL '3 months'`) are blocked before execution with an explanation the model can act on.
+3. Every query is checked before it runs: a single `SELECT` only (parsed with `sqlglot` in the engine's dialect), plus a small logic lint for typical model mistakes: `GROUP BY` columns that are not returned, and joins that multiply rows. The join check works on any schema: it asks the database whether each join column is unique (primary keys and unique indexes first, then the data itself within a time limit) and flags many-to-many joins and sums taken on the "one" side of a one-to-many join. On Trino, common PostgreSQL habits (`::` casts, `ILIKE`, dates written as plain strings, `INTERVAL '3 months'`) are blocked before execution with an explanation the model can act on.
 4. Queries run as a **read-only PostgreSQL role** (`ai_reader`: `SELECT` only, read-only transactions, 30 s timeout), so even a bad query cannot change data.
 5. If a query fails or returns the wrong shape for the chosen chart, the model is asked to fix it (up to a few attempts); charts that stay invalid are dropped and reported in the log.
 6. Charts, datasets and dashboards are created through Superset's **official REST API**, with the permissions of the logged-in user.
 
-Business rules live in the data, not in the prompt: `v_vendite` contains only valid sales (cancelled orders excluded), `v_vendite_tutte` includes cancelled ones, and `v_ordini` has one row per order for counting orders. This proved far more reliable than asking the model to remember filters.
+Business rules live in the data, not in the prompt: `v_vendite` contains only valid sales (cancelled orders excluded), `v_vendite_tutte` includes cancelled ones, `v_ordini` has one row per valid order (cancelled excluded) for counting orders, and `v_ordini_tutti` includes every status for cancellation analyses. This proved far more reliable than asking the model to remember filters.
+
+The extension code contains no table or column names. Everything specific to a database lives in the database (comments on tables, views and columns) and in a configuration folder, `config/<database>/`, loaded by `deploy.ps1 -Config`: settings such as showing only views to the model, business rules in plain language added to the prompt, and the example questions shown in the UI. See "Adattare la POC a un altro database" in [README.it.md](README.it.md).
 
 The extension is a Flask blueprint plus a few static JavaScript files loaded through Superset's `FLASK_APP_MUTATOR` hook. There is **no fork of the Superset frontend**.
 
@@ -93,6 +95,7 @@ postgres/init/               schema, synthetic data (400 customers, 60 products,
 superset/                    Dockerfile, superset_config.py, init script
 superset/superset_ai/        the extension: views.py, llm.py, dati.py, sqlguard.py, templates, static JS
 scripts/                     PowerShell deploy / forward / test / Trino scripts
+config/vendite/              database-specific settings, business rules and UI examples for the sample database
 PROVE.md                     test plan with expected values (Italian)
 README.it.md                 full documentation in Italian
 ```

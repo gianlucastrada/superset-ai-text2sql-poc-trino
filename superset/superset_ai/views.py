@@ -115,7 +115,7 @@ def _genera_ed_esegui(
         else:
             # Errori logici tipici (es. GROUP BY su colonna non restituita): si chiede una correzione;
             # all'ultimo tentativo la query viene eseguita comunque, con un avviso.
-            avviso = controlla_logica(sql, dial)
+            avviso = controlla_logica(sql, dial, dati.colonna_unica)
             if avviso and not ultimo:
                 ultimo_errore = avviso
             else:
@@ -193,7 +193,7 @@ def _verifica_grafico(
         ultimo = tentativo + 1 == tentativi
         try:
             sql = valida(sql, dial)
-            avviso = controlla_logica(sql, dial)
+            avviso = controlla_logica(sql, dial, dati.colonna_unica)
             if avviso and not ultimo:
                 raise SqlNonValida(avviso)
             ris = dati.esegui_query(sql, limite=1000, motore=motore)
@@ -270,6 +270,8 @@ def pagina_assistant():
         ollama_url=settings.OLLAMA_URL,
         nome_database=settings.AI_DATABASE_NAME,
         motori=[(m, dati.MOTORI[m]["etichetta"]) for m in dati.motori_disponibili()],
+        esempi_domande=settings.AI_ESEMPI_DOMANDE,
+        esempi_dashboard=settings.AI_ESEMPI_DASHBOARD,
     )
 
 
@@ -292,6 +294,7 @@ def api_info():
             "schema": settings.AI_SCHEMA,
             "modello": settings.OLLAMA_MODEL,
             "ollama_url": settings.OLLAMA_URL,
+            "esempio": settings.AI_ESEMPI_DOMANDE[0] if settings.AI_ESEMPI_DOMANDE else "",
         }
     )
 

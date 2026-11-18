@@ -1,0 +1,5 @@
+- Gli ordini con stato 'Annullato' non contano: ne' nel fatturato ne' nel numero di ordini. Le viste v_vendite e v_ordini li escludono gia', quindi su quelle non serve filtrare per stato.
+- Numero di ordini (totale, per canale, per mese, per cliente, media di ordini per cliente, ordini resi): vista v_ordini, una riga per ordine valido.
+- Ordini annullati (quanti, percentuale, per canale, per mese): vista v_ordini_tutti, che contiene tutti gli stati.
+- Fatturato, margini, quantita', clienti, prodotti, categorie, canali e aree: vista v_vendite, una riga per riga d'ordine. Per contare gli ordini su v_vendite usa COUNT(DISTINCT ordine_id).
+- "Regione" e' la regione italiana (colonna regione, es. Lombardia); "area" e' la macro-area (Nord, Centro, Sud e Isole).

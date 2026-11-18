@@ -1,0 +1,4 @@
+Fatturato mensile degli ultimi 12 mesi
+Top 10 prodotti per margine
+Fatturato per regione e canale
+Percentuale di ordini annullati per canale

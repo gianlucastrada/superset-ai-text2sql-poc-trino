@@ -135,7 +135,7 @@ kubectl describe pod -n superset-ai -l app=superset
 - **Risposte lente o timeout**: la prima richiesta carica `qwen3.6:35b` sulla Spark e può richiedere 1-2 minuti. Il limite è di 240 secondi (variabile `OLLAMA_TIMEOUT`). Il ragionamento esteso ("thinking") del modello è disattivato per velocità (`OLLAMA_THINK=false`).
 - **"Il modello non ha restituito un JSON valido"**: riprova. Se succede spesso, prova `qwen3-coder:30b`.
 - **Query sbagliate**: la qualità dipende molto dai **commenti** su tabelle e colonne in `postgres/init/02-schema-vendite.sql` e `05-viste-vendite.sql`. Sono il modo più efficace per spiegare i dati al modello. Lo schema letto dall'IA è visibile su `http://localhost:8088/ai/api/schema?aggiorna=1`.
-- **Regole di business nei dati, non nel prompt**: il modello a volte dimentica i filtri, per esempio l'esclusione degli ordini annullati. Per questo `v_vendite` contiene già solo le vendite valide, mentre gli annullati sono in `v_vendite_tutte`. Per contare gli ordini c'è `v_ordini` (una riga per ordine): su `v_vendite` `COUNT(*)` conterebbe le righe d'ordine, e un controllo automatico lo segnala al modello. Conviene fare lo stesso con altre regole: viste che restituiscono già i dati "giusti".
+- **Regole di business nei dati, non nel prompt**: il modello a volte dimentica i filtri, per esempio l'esclusione degli ordini annullati. Per questo `v_vendite` contiene già solo le vendite valide, mentre gli annullati sono in `v_vendite_tutte`. Per contare gli ordini c'è `v_ordini` (una riga per ordine valido, annullati esclusi), mentre `v_ordini_tutti` ha tutti gli stati e serve per le analisi sugli annullati: su `v_vendite` `COUNT(*)` conterebbe le righe d'ordine, e un controllo automatico lo segnala al modello. Al modello si mostrano solo le viste, non le tabelle di base, così non può scrivere JOIN che moltiplicano le righe (un controllo automatico le segnala comunque). Conviene fare lo stesso con altre regole: viste che restituiscono già i dati "giusti".
 - **Pod `superset` in `ErrImageNeverPull`/`ImagePullBackOff`**: l'immagine locale non è visibile al cluster. Controlla che il contesto sia `docker-desktop` e rilancia `deploy.ps1`.
 - **Ho cancellato il Secret ma non i dati**: Postgres ha ancora le vecchie password. Usa `destroy.ps1 -Purge` e rifai il deploy.
 - **Non vedo la voce di menu AI**: c'è comunque il pulsante **AI Assistant** in basso a destra in ogni pagina, oppure vai su `/ai/`.
@@ -170,7 +170,7 @@ superset-ai-poc\
     02-schema-vendite.sql            tabelle, vista v_vendite, commenti per l'IA
     03-dati-vendite.sql              dati inventati (deterministici)
     04-permessi.sql                  ai_reader in sola lettura
-    05-viste-vendite.sql             v_vendite (solo vendite valide), v_vendite_tutte, v_ordini (una riga per ordine)
+    05-viste-vendite.sql             v_vendite (solo vendite valide), v_vendite_tutte, v_ordini (ordini validi), v_ordini_tutti
   superset\
     Dockerfile                       apache/superset:6.1.0 + psycopg2 + trino + estensione
     superset_config.py               configurazione (BLUEPRINTS, FLASK_APP_MUTATOR, ...)
@@ -192,7 +192,34 @@ superset-ai-poc\
     30-trino.yaml                    catalogo postgresql (ConfigMap), Deployment e Service di Trino
   scripts\
     deploy.ps1  forward.ps1  password.ps1  test-ollama.ps1  destroy.ps1  aggiorna-db.ps1  trino.ps1
+  config\vendite\                   configurazione del database della POC (impostazioni, regole, esempi)
 ```
+
+## Adattare la POC a un altro database
+
+Il codice dell'estensione non contiene nomi di tabelle o colonne: tutto ciò che riguarda un database sta **nel database stesso** e in una **cartella di configurazione**.
+
+1. **Commenti nel database** su tabelle, viste e colonne: il modello li legge insieme allo schema. Sono il posto giusto per dire cosa contiene una colonna ("regione italiana, non macro-area") o quali righe escludere da un totale.
+2. **Viste di analisi** che restituiscono già i dati "giusti" (per esempio senza le righe da escludere): il modello non deve ricordarsi i filtri.
+3. **Cartella `config\<database>\`**, letta da `deploy.ps1 -Config config\<database>` (default `config\vendite`). Tutti i file sono facoltativi:
+
+   | File | Contenuto |
+   |---|---|
+   | `database.env` | impostazioni `CHIAVE=valore` (tabella sotto) |
+   | `istruzioni.md` | regole di business in linguaggio naturale, aggiunte al prompt (es. quale vista usare per contare gli ordini) |
+   | `esempi-domande.txt` | domande di esempio nella pagina AI, una per riga |
+   | `esempi-dashboard.txt` | richieste di dashboard di esempio, una per riga |
+
+   | Impostazione | Default | Uso |
+   |---|---|---|
+   | `AI_SOLO_VISTE` | `false` | `true` = al modello solo le viste, se ce ne sono |
+   | `AI_OGGETTI_INCLUSI` / `AI_OGGETTI_ESCLUSI` | vuoti | elenchi separati da virgola, con caratteri jolly (es. `v_*`, `tmp_*,log_*`) |
+   | `AI_COLONNA_DATA` | vuota | `tabella.colonna` che fissa "oggi" per i periodi relativi; vuota = la data più recente tra le colonne mostrate |
+   | `AI_UNICITA_TIMEOUT_MS` | `3000` | tempo massimo del controllo sulle JOIN (vedi sotto); `0` = solo chiavi del catalogo |
+
+**Controllo delle JOIN, valido per ogni schema.** Prima di eseguire una query con JOIN, l'estensione verifica se la colonna di collegamento ha un valore diverso per ogni riga: prima guarda chiavi primarie e indici unique, poi, per viste e tabelle senza chiave, conta sui dati (entro `AI_UNICITA_TIMEOUT_MS`). Se nessuna delle due parti è unica, la JOIN moltiplica le righe; se lo è solo una, sommare le sue colonne dà totali gonfiati. In entrambi i casi la query viene rimandata al modello con la spiegazione.
+
+Per un altro database servono anche la connessione (`AI_DATA_URI` e i nomi in `k8s\20-superset.yaml`) e lo schema (`AI_SCHEMA`). `aggiorna-db.ps1` e `PROVE.md` restano specifici del database di vendite della POC.
 
 ## Variabili utili (Deployment `superset`)
 

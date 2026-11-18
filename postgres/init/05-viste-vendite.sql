@@ -5,6 +5,8 @@
 --                    il filtro sugli annullati (il modello a volte lo dimentica).
 -- v_vendite_tutte  = tutte le righe d'ordine, compresi gli annullati: solo per analisi
 --                    sugli annullamenti.
+-- v_ordini         = una riga per ORDINE, solo ordini validi (annullati esclusi).
+-- v_ordini_tutti   = una riga per ORDINE, tutti gli stati: solo per analisi sugli annullamenti.
 --
 -- Il file e' idempotente (CREATE OR REPLACE): si usa sia alla prima inizializzazione sia
 -- per aggiornare un database gia' esistente (scripts\aggiorna-db.ps1).
@@ -41,10 +43,14 @@ JOIN prodotti p ON p.id = r.prodotto_id;
 CREATE OR REPLACE VIEW v_vendite AS
 SELECT * FROM v_vendite_tutte WHERE stato <> 'Annullato';
 
--- v_ordini = UNA riga per ORDINE (tutti gli stati, annullati e resi compresi).
---            Serve per contare gli ordini (annullati, resi, per canale, per mese...):
---            su v_vendite COUNT(*) conta le righe d'ordine, non gli ordini.
-CREATE OR REPLACE VIEW v_ordini AS
+-- v_ordini_tutti = UNA riga per ORDINE con TUTTI gli stati (annullati e resi compresi).
+--                  Solo per analisi sugli annullamenti (quanti, percentuale, per canale...).
+-- v_ordini       = UNA riga per ORDINE, solo ordini VALIDI (annullati esclusi), come v_vendite.
+--                  Serve per contare gli ordini: su v_vendite COUNT(*) conta le righe d'ordine.
+-- Stessa logica di v_vendite / v_vendite_tutte: la regola "gli annullati non contano" sta
+-- nei dati. Prima v_ordini conteneva anche gli annullati e il modello contava 5.189 ordini
+-- invece di 4.899.
+CREATE OR REPLACE VIEW v_ordini_tutti AS
 SELECT
     ordine_id,
     min(data_ordine)           AS data_ordine,
@@ -63,16 +69,24 @@ SELECT
 FROM v_vendite_tutte
 GROUP BY ordine_id;
 
-GRANT SELECT ON v_vendite, v_vendite_tutte, v_ordini TO ai_reader;
+-- Stesse colonne, nello stesso ordine, ma senza gli ordini annullati
+CREATE OR REPLACE VIEW v_ordini AS
+SELECT * FROM v_ordini_tutti WHERE stato <> 'Annullato';
+
+GRANT SELECT ON v_vendite, v_vendite_tutte, v_ordini, v_ordini_tutti TO ai_reader;
 
 COMMENT ON VIEW v_vendite IS
-  'Vista consigliata per TUTTE le analisi di vendita: fatturato, numero ordini, scontrino medio, margini, clienti, prodotti, canali, aree. Contiene SOLO le vendite valide: gli ordini Annullati sono gia esclusi, quindi NON serve filtrare per stato. Una riga per riga d''ordine: per CONTARE gli ordini usare v_ordini oppure COUNT(DISTINCT ordine_id), mai COUNT(*).';
+  'Vista consigliata per TUTTE le analisi di vendita: fatturato, numero ordini, scontrino medio, margini, clienti, prodotti, canali, aree. Contiene SOLO le vendite valide: gli ordini Annullati sono gia esclusi, quindi NON serve filtrare per stato. Una riga per riga d''ordine: per CONTARE gli ordini usare v_ordini oppure COUNT(DISTINCT ordine_id), mai COUNT(*). Contiene gia tutte le colonne di ordini, righe, clienti e prodotti: NON unirla con JOIN ad altre tabelle o viste (le righe si moltiplicano).';
 COMMENT ON VIEW v_vendite_tutte IS
-  'Tutte le righe d''ordine COMPRESI gli ordini Annullati. Usare SOLO per analisi sugli annullamenti (es. percentuale di ordini annullati). Per fatturato e vendite usare v_vendite. Una riga per riga d''ordine: per contare gli ordini annullati usare v_ordini.';
+  'Tutte le righe d''ordine COMPRESI gli ordini Annullati. Usare SOLO per analisi sugli annullamenti (es. percentuale di ordini annullati). Per fatturato e vendite usare v_vendite. Una riga per riga d''ordine: per contare gli ordini annullati usare v_ordini_tutti.';
 COMMENT ON VIEW v_ordini IS
-  'Una riga per ORDINE, con TUTTI gli stati (Consegnato, Spedito, Annullato, Reso). Vista da usare per CONTARE ordini: numero di ordini, ordini annullati o resi, percentuale di annullati, ordini per canale o per mese. Per il fatturato usare v_vendite (esclude gli annullati); in questa vista importo e margine includono anche gli annullati.';
-COMMENT ON COLUMN v_ordini.stato   IS 'Consegnato, Spedito, Annullato, Reso';
-COMMENT ON COLUMN v_ordini.importo IS 'Totale dell''ordine in euro (somma delle righe), anche se annullato';
+  'Una riga per ORDINE, solo ordini VALIDI: gli Annullati sono gia esclusi, quindi NON serve filtrare per stato. Vista da usare per CONTARE gli ordini: numero di ordini, ordini per canale, per mese o per cliente, media di ordini per cliente, ordini resi. Per gli ordini annullati usare v_ordini_tutti.';
+COMMENT ON VIEW v_ordini_tutti IS
+  'Una riga per ORDINE con TUTTI gli stati (Consegnato, Spedito, Annullato, Reso). Usare SOLO per analisi sugli ordini annullati: quanti sono, percentuale di annullati, annullati per canale o per mese. Per il numero di ordini usare v_ordini; per il fatturato usare v_vendite.';
+COMMENT ON COLUMN v_ordini.stato         IS 'Consegnato, Spedito o Reso (gli Annullati non sono presenti in questa vista)';
+COMMENT ON COLUMN v_ordini.importo       IS 'Totale dell''ordine in euro (somma delle righe)';
+COMMENT ON COLUMN v_ordini_tutti.stato   IS 'Consegnato, Spedito, Annullato, Reso';
+COMMENT ON COLUMN v_ordini_tutti.importo IS 'Totale dell''ordine in euro (somma delle righe), anche se annullato';
 
 COMMENT ON COLUMN v_vendite.mese     IS 'Primo giorno del mese dell''ordine, utile per raggruppare per mese';
 COMMENT ON COLUMN v_vendite.stato    IS 'Consegnato, Spedito o Reso (gli Annullati non sono presenti in questa vista)';
@@ -80,3 +94,13 @@ COMMENT ON COLUMN v_vendite.importo  IS 'Fatturato netto della riga in euro = qu
 COMMENT ON COLUMN v_vendite.margine  IS 'Margine della riga in euro = importo - quantita * costo';
 COMMENT ON COLUMN v_vendite_tutte.stato   IS 'Consegnato, Spedito, Annullato, Reso';
 COMMENT ON COLUMN v_vendite_tutte.importo IS 'Importo netto della riga in euro, COMPRESI gli ordini annullati';
+
+-- regione e area: senza descrizione il modello rispondeva "Nord" a "in quale regione...".
+COMMENT ON COLUMN v_vendite.regione       IS 'Regione italiana del cliente (es. Lombardia, Lazio, Campania). Per domande sulla regione usare questa colonna, non area.';
+COMMENT ON COLUMN v_vendite.area          IS 'Macro-area geografica: Nord, Centro oppure Sud e Isole. NON e la regione.';
+COMMENT ON COLUMN v_vendite_tutte.regione IS 'Regione italiana del cliente (es. Lombardia, Lazio, Campania). Per domande sulla regione usare questa colonna, non area.';
+COMMENT ON COLUMN v_vendite_tutte.area    IS 'Macro-area geografica: Nord, Centro oppure Sud e Isole. NON e la regione.';
+COMMENT ON COLUMN v_ordini.regione        IS 'Regione italiana del cliente (es. Lombardia, Lazio, Campania). Per domande sulla regione usare questa colonna, non area.';
+COMMENT ON COLUMN v_ordini.area           IS 'Macro-area geografica: Nord, Centro oppure Sud e Isole. NON e la regione.';
+COMMENT ON COLUMN v_ordini_tutti.regione  IS 'Regione italiana del cliente (es. Lombardia, Lazio, Campania). Per domande sulla regione usare questa colonna, non area.';
+COMMENT ON COLUMN v_ordini_tutti.area     IS 'Macro-area geografica: Nord, Centro oppure Sud e Isole. NON e la regione.';

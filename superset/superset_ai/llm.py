@@ -53,12 +53,13 @@ _DIALETTI: dict[str, dict[str, str]] = {
 - Arrotonda importi e medie con ROUND(espressione::numeric, 2).
 - Per andamenti nel tempo raggruppa per mese con date_trunc('month', <data>)::date AS mese e ordina per mese.
 - Le date costanti si scrivono DATE 'aaaa-mm-gg'.""",
-        "mese": "date_trunc('month', data_ordine)::date AS mese",
-        "media": "SELECT ROUND(AVG(totale)::numeric, 2) AS media_per_ordine FROM (SELECT ordine_id, SUM(importo) AS totale FROM tabella GROUP BY ordine_id) t",
+        "mese": "date_trunc('month', <colonna_data>)::date AS mese",
+        "media": "SELECT ROUND(AVG(totale)::numeric, 2) AS media_per_entita FROM (SELECT <id_entita>, SUM(<valore>) AS totale FROM <tabella> GROUP BY <id_entita>) t",
+        "media_mese": "SELECT ROUND(AVG(totale)::numeric, 2) AS media_mensile FROM (SELECT date_trunc('month', <colonna_data>) AS mese, SUM(<valore>) AS totale FROM <tabella> GROUP BY 1) t",
     },
     "trino": {
         "nome": "Trino",
-        "regole": """- Dialetto Trino (NON PostgreSQL). Le tabelle si indicano come public.<nome> oppure solo <nome>.
+        "regole": """- Dialetto Trino (NON PostgreSQL). Le tabelle si indicano come <schema>.<nome> (con lo schema indicato nello SCHEMA DEL DATABASE) oppure solo <nome>.
 - Niente cast con '::': usa sempre CAST(espressione AS tipo).
 - Le date costanti si scrivono SEMPRE DATE 'aaaa-mm-gg': una colonna date non si confronta con una stringa.
 - Niente ILIKE: per confronti senza maiuscole usa lower(colonna) LIKE lower('%testo%').
@@ -67,8 +68,9 @@ _DIALETTI: dict[str, dict[str, str]] = {
 - Arrotonda importi e medie con ROUND(espressione, 2).
 - Per andamenti nel tempo raggruppa per mese con CAST(date_trunc('month', <data>) AS DATE) AS mese e ordina per mese.
 - Gli identificatori vanno tra doppi apici solo se servono; le stringhe tra apici singoli.""",
-        "mese": "CAST(date_trunc('month', data_ordine) AS DATE) AS mese",
-        "media": "SELECT ROUND(AVG(totale), 2) AS media_per_ordine FROM (SELECT ordine_id, SUM(importo) AS totale FROM tabella GROUP BY ordine_id) t",
+        "mese": "CAST(date_trunc('month', <colonna_data>) AS DATE) AS mese",
+        "media": "SELECT ROUND(AVG(totale), 2) AS media_per_entita FROM (SELECT <id_entita>, SUM(<valore>) AS totale FROM <tabella> GROUP BY <id_entita>) t",
+        "media_mese": "SELECT ROUND(AVG(totale), 2) AS media_mensile FROM (SELECT date_trunc('month', <colonna_data>) AS mese, SUM(<valore>) AS totale FROM <tabella> GROUP BY 1) t",
     },
 }
 
@@ -83,26 +85,41 @@ def esempio_mese(dialetto: str) -> str:
 
 def _regole_sql(dialetto: str) -> str:
     d = _d(dialetto)
-    return f"""Regole per la SQL:
+    return f"""Regole per la SQL (negli esempi i nomi tra < > sono segnaposto: usa tabelle e colonne reali dello schema):
 {d["regole"]}
 - Una sola istruzione SELECT (eventualmente con WITH). Mai INSERT, UPDATE, DELETE, DDL, SET o piu' istruzioni.
 - Usa SOLO tabelle e colonne presenti nello schema; non inventare nomi. Qualifica le colonne se usi JOIN.
-- Se esiste una vista che contiene gia' i dati necessari (es. una vista di vendite con importi calcolati), preferiscila alle JOIN.
+- Se esiste una vista che contiene gia' i dati necessari (es. una vista che unisce gia' le tabelle e calcola gli importi), preferiscila alle JOIN.
+- Prima di una JOIN controlla quante righe ci sono per ogni valore della chiave: unire due tabelle che hanno ENTRAMBE piu' righe per lo stesso valore (es. due tabelle di dettaglio sullo stesso codice) ripete le righe e gonfia somme e conteggi; lo stesso succede se sommi una colonna della tabella con una riga per chiave dopo averla unita a una tabella di dettaglio. Se una vista contiene gia' tutte le colonne necessarie usa quella, senza JOIN; altrimenti aggrega una delle due parti in una sottoquery prima di unirla.
+- Usa la colonna il cui nome o commento corrisponde alla parola usata nella domanda, e non dare a una colonna l'alias di un'altra: l'alias deve descrivere il contenuto reale.
 - Rispetta le indicazioni scritte nei commenti dello schema (ad esempio quali righe escludere da un totale).
-- Alias delle colonne calcolate in minuscolo snake_case, senza spazi ne' accenti (es. fatturato_totale).
+- Alias delle colonne calcolate in minuscolo snake_case, senza spazi ne' accenti (es. totale_mensile).
 - Per classifiche usa ORDER BY ... DESC con LIMIT (10 se non indicato).
 - I periodi relativi ("ultimo mese", "ultimo trimestre", "quest'anno") vanno calcolati rispetto all'ULTIMA data presente nei dati (indicata nello schema), non alla data di oggi.
 - Per "ultimo mese", "ultimo trimestre", "ultimi 3 mesi", "ultimo semestre", "ultimo anno", "quest'anno" usa le date gia' calcolate nella sezione PERIODI DI RIFERIMENTO in fondo allo schema, scritte come costanti DATE 'aaaa-mm-gg'. NON ricalcolarle con date_trunc, MAX() o CURRENT_DATE. I trimestri solari si usano solo se l'utente li nomina esplicitamente (es. "Q3", "terzo trimestre", "trimestre solare").
 - Nella spiegazione indica sempre le date esatte del periodo considerato.
-- Conteggio di ORDINI (numero di ordini, annullati, resi, per canale, per mese): usa la vista con una riga per ordine se esiste; altrimenti COUNT(DISTINCT ordine_id). Mai COUNT(*) su una vista o tabella con una riga per riga d'ordine: conterebbe le righe, non gli ordini.
-- Percentuale di ordini in un certo stato: 100.0 * COUNT(*) FILTER (WHERE stato = '...') / COUNT(*) sulla vista con una riga per ordine.
+- Conteggi di entita' (quanti clienti, quanti ordini, quanti prodotti...): usa la tabella o vista con UNA riga per entita', se esiste; altrimenti COUNT(DISTINCT <id_entita>). Mai COUNT(*) su una tabella con piu' righe per la stessa entita' (es. righe di dettaglio): conterebbe le righe, non le entita'.
+- Percentuale di righe in un certo stato: 100.0 * COUNT(*) FILTER (WHERE <condizione>) / COUNT(*), su una tabella o vista che contiene TUTTI i casi (anche quelli che altre viste escludono).
 - Se la domanda chiede un unico valore (totale, conteggio, media, percentuale) la query deve restituire UNA sola riga.
-- Medie "per ordine", "per cliente", "per mese" ecc. richiedono DUE livelli: prima il totale per entita' in una sottoquery, poi la media dei totali. Esempio (media dell'importo totale per ordine):
+- Medie "per <entita'>" (per ordine, per cliente, per mese...) richiedono DUE livelli: prima il totale per entita' in una sottoquery, poi la media dei totali. Esempio:
   {d["media"]}
-  SBAGLIATO: SELECT AVG(importo) FROM tabella GROUP BY ordine_id  (restituisce una riga per ordine, non la media).
+  SBAGLIATO: SELECT AVG(<valore>) FROM <tabella> GROUP BY <id_entita>  (restituisce una riga per entita', non la media).
+- "<misura> media mensile", "<misura> medio mensile", "in media al mese" = UN SOLO valore: la media dei totali mensili. Esempio:
+  {d["media_mese"]}
+  Invece "<misura> mensile", "per mese", "mese per mese", "andamento" = una riga per mese.
 - Ogni colonna usata in GROUP BY nella query finale deve comparire anche tra le colonne restituite.
 - Se la domanda non indica un periodo, usa tutti i dati disponibili.
-- Se la domanda e' ambigua scegli l'interpretazione piu' ragionevole e dichiarala nella spiegazione."""
+- Se la domanda e' ambigua scegli l'interpretazione piu' ragionevole e dichiarala nella spiegazione.{_istruzioni()}"""
+
+
+def _istruzioni() -> str:
+    """Regole di business del database in uso (config/<database>/istruzioni.md), se ci sono."""
+    if not settings.AI_ISTRUZIONI:
+        return ""
+    return (
+        "\n\nREGOLE DI QUESTO DATABASE (valgono piu' delle regole generali e degli esempi):\n"
+        + settings.AI_ISTRUZIONI
+    )
 
 
 def _prompt_sql(schema: str, dialetto: str) -> str:
@@ -127,7 +144,7 @@ Tipi di grafico ammessi e forma dei dati che la query deve restituire:
 - "table": elenco di dettaglio. Piu' colonne, al massimo 50 righe. x = "" e y = "".
 
 Metti prima 1-3 grafici "big_number" con i KPI principali, poi gli altri. Titoli brevi in italiano.
-I grafici della stessa dashboard devono essere COERENTI tra loro: stessa definizione di ogni misura e stessi filtri (ad esempio, se il fatturato esclude gli ordini annullati, lo escludono TUTTI i grafici sul fatturato; la somma dell'andamento mensile deve coincidere con il KPI del totale nello stesso periodo).
+I grafici della stessa dashboard devono essere COERENTI tra loro: stessa definizione di ogni misura e stessi filtri (ad esempio, se una misura esclude certe righe, le escludono TUTTI i grafici su quella misura; la somma dell'andamento mensile deve coincidere con il KPI del totale nello stesso periodo).
 
 {_regole_sql(dialetto)}
 
@@ -198,8 +215,8 @@ def correggi_sql(domanda: str, sql: str, errore: str, schema: str, dialetto: str
         f"Errore:\n{errore}\n\n"
         f"Correggi la query (dialetto {_d(dialetto)['nome']}) rispettando lo schema. "
         "Cambia SOLO cio' che serve a risolvere l'errore: "
-        "mantieni tutti i filtri e le condizioni della query originale (ad esempio l'esclusione "
-        "degli ordini annullati) e tutte le regole indicate nei commenti dello schema."
+        "mantieni tutti i filtri e le condizioni della query originale (ad esempio le righe "
+        "escluse da un totale) e tutte le regole indicate nei commenti dello schema."
     )
     dati = chat_json(_prompt_sql(schema, dialetto), richiesta, _SCHEMA_SQL)
     return {"sql": str(dati.get("sql", "")), "spiegazione": str(dati.get("spiegazione", ""))}

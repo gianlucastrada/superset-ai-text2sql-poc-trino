@@ -51,6 +51,7 @@ COMMENT ON TABLE righe_ordine IS 'Righe d''ordine: prodotto, quantita, prezzo un
 
 COMMENT ON COLUMN clienti.tipo                IS 'Privato oppure Azienda';
 COMMENT ON COLUMN clienti.area                IS 'Nord, Centro oppure Sud e Isole';
+COMMENT ON COLUMN clienti.regione             IS 'Regione italiana (es. Lombardia, Lazio). Per domande sulla regione usare questa colonna; area è la macro-area';
 COMMENT ON COLUMN clienti.data_registrazione  IS 'Data in cui il cliente si è registrato';
 COMMENT ON COLUMN prodotti.prezzo_listino     IS 'Prezzo di vendita di listino in euro, IVA esclusa';
 COMMENT ON COLUMN prodotti.costo              IS 'Costo di acquisto unitario in euro';
