@@ -259,28 +259,96 @@
     };
   }
 
-  // form_data di Superset per ogni tipo di grafico
+  // form_data di Superset per ogni tipo di grafico (forme dei dati: grafici.py)
   function formData(g, datasetId) {
     var base = { datasource: datasetId + '__table', row_limit: 1000 };
     var m = g.y ? metrica(g.y) : null;
+    var serie = g.serie ? [g.serie] : [];
+    var conSerie = serie.length > 0;
     switch (g.tipo) {
       case 'big_number':
         return Object.assign(base, { viz_type: 'big_number_total', metric: m, subheader: '' });
-      case 'bar':
+      case 'gauge':
         return Object.assign(base, {
-          viz_type: 'echarts_timeseries_bar', x_axis: g.x, metrics: [m], groupby: [],
-          x_axis_sort: m.label, x_axis_sort_asc: false, row_limit: 50,
-          show_legend: false, show_value: true, orientation: 'vertical', xAxisLabelRotation: 45,
+          viz_type: 'gauge_chart', metric: m, groupby: [], min_val: 0, max_val: g.massimo || 100,
+          show_progress: true, overlap: true, round_cap: true, number_format: 'SMART_NUMBER',
+        });
+      case 'big_number_trend':
+        return Object.assign(base, {
+          viz_type: 'big_number', x_axis: g.x, time_grain_sqla: 'P1M', metric: m,
+          show_trend_line: true, start_y_axis_at_zero: true, compare_lag: 1,
+          compare_suffix: 'rispetto al periodo precedente', subheader: '',
         });
       case 'line':
+      case 'area':
         return Object.assign(base, {
-          viz_type: 'echarts_timeseries_line', x_axis: g.x, time_grain_sqla: 'P1M',
-          metrics: [m], groupby: [], show_legend: false, markerEnabled: true,
+          viz_type: g.tipo === 'area' ? 'echarts_area' : 'echarts_timeseries_line',
+          x_axis: g.x, time_grain_sqla: 'P1M', metrics: [m], groupby: serie,
+          stack: g.tipo === 'area' && conSerie ? 'Stack' : null, opacity: 0.3,
+          show_legend: conSerie, markerEnabled: g.tipo === 'line', row_limit: 10000,
         });
+      case 'bar':
+      case 'bar_horizontal':
+      case 'bar_stacked': {
+        var barre = {
+          viz_type: 'echarts_timeseries_bar', x_axis: g.x, metrics: [m], groupby: serie, row_limit: 1000,
+          show_legend: conSerie, show_value: !conSerie || g.tipo === 'bar_stacked',
+          orientation: g.tipo === 'bar_horizontal' ? 'horizontal' : 'vertical',
+          stack: g.tipo === 'bar_stacked' ? 'Stack' : null,
+          xAxisLabelRotation: g.tipo === 'bar_horizontal' ? 0 : 45,
+        };
+        // senza serie: categorie ordinate per valore (con la serie l'ordine lo da' la query)
+        if (!conSerie) Object.assign(barre, { x_axis_sort: m.label, x_axis_sort_asc: g.tipo === 'bar_horizontal' });
+        return Object.assign(base, barre);
+      }
       case 'pie':
+      case 'donut':
         return Object.assign(base, {
           viz_type: 'pie', groupby: [g.x], metric: m, row_limit: 25,
           show_labels: true, label_type: 'key_percent', show_legend: true,
+          donut: g.tipo === 'donut', innerRadius: 40, outerRadius: 70,
+        });
+      case 'funnel':
+        return Object.assign(base, {
+          viz_type: 'funnel', groupby: [g.x], metric: m, row_limit: 25, sort_by_metric: true,
+          show_labels: true, label_type: 'key_value_percent', show_legend: true,
+        });
+      case 'treemap':
+        return Object.assign(base, {
+          viz_type: 'treemap_v2', groupby: [g.x].concat(serie), metric: m, row_limit: 1000,
+          show_labels: true, show_upper_labels: true, label_type: 'key_value',
+        });
+      case 'heatmap':
+        return Object.assign(base, {
+          viz_type: 'heatmap_v2', x_axis: g.x, groupby: g.serie, metric: m, row_limit: 10000,
+          linear_color_scheme: 'superset_seq_1', normalize_across: 'heatmap', show_values: true,
+          sort_x_axis: 'alpha_asc', sort_y_axis: 'alpha_asc', legend_type: 'continuous',
+          xscale_interval: -1, yscale_interval: -1, value_bounds: [null, null], y_axis_format: 'SMART_NUMBER',
+        });
+      case 'pivot':
+        return Object.assign(base, {
+          viz_type: 'pivot_table_v2', groupbyRows: [g.x], groupbyColumns: serie, metrics: [m],
+          aggregateFunction: 'Sum', rowTotals: true, colTotals: true, valueFormat: 'SMART_NUMBER',
+          metricsLayout: 'COLUMNS', row_limit: 10000,
+        });
+      case 'bubble':
+        return Object.assign(base, {
+          viz_type: 'bubble_v2', entity: g.serie, x: metrica(g.x), y: m,
+          size: metrica(g.dimensione || g.y), max_bubble_size: '15', row_limit: 100,
+          x_axis_label: g.x, y_axis_label: g.y, show_legend: false,
+        });
+      case 'histogram':
+        return Object.assign(base, {
+          viz_type: 'histogram_v2', column: g.y, groupby: serie, bins: 10, normalize: false,
+          cumulative: false, row_limit: 10000, x_axis_title: g.y, y_axis_title: 'Numero',
+          show_legend: conSerie,
+        });
+      case 'box_plot':
+        // Superset calcola mediana, quartili, media, minimo e massimo delle osservazioni ("columns")
+        // per ogni categoria ("groupby"); con Min/max i baffi arrivano al valore piu' alto e piu' basso
+        return Object.assign(base, {
+          viz_type: 'box_plot', columns: [g.x], groupby: serie, metrics: [m],
+          whiskerOptions: 'Min/max (no outliers)', row_limit: 10000, x_ticks_layout: '45°',
         });
       default:
         return Object.assign(base, { viz_type: 'table', query_mode: 'raw', all_columns: g.colonne, order_by_cols: [] });
@@ -310,12 +378,14 @@
         pos[idRiga].children.push(idGraf);
       });
     }
-    var kpi = grafici.filter(function (e) { return e.g.tipo === 'big_number'; });
-    var altri = grafici.filter(function (e) { return e.g.tipo !== 'big_number' && e.g.tipo !== 'table'; });
-    var tabelle = grafici.filter(function (e) { return e.g.tipo === 'table'; });
+    var KPI = ['big_number', 'gauge', 'big_number_trend'];
+    var LARGHI = ['table', 'pivot', 'heatmap'];  // a tutta larghezza
+    var kpi = grafici.filter(function (e) { return KPI.indexOf(e.g.tipo) >= 0; });
+    var altri = grafici.filter(function (e) { return KPI.indexOf(e.g.tipo) < 0 && LARGHI.indexOf(e.g.tipo) < 0; });
+    var tabelle = grafici.filter(function (e) { return LARGHI.indexOf(e.g.tipo) >= 0; });
     if (kpi.length) {
       var w = Math.max(3, Math.floor(12 / kpi.length));
-      riga(kpi.map(function (e) { return Object.assign(e, { larghezza: w, altezza: 25 }); }));
+      riga(kpi.map(function (e) { return Object.assign(e, { larghezza: w, altezza: e.g.tipo === 'big_number' ? 25 : 40 }); }));
     }
     for (var i = 0; i < altri.length; i += 2) {
       riga(altri.slice(i, i + 2).map(function (e) { return Object.assign(e, { larghezza: 6, altezza: 50 }); }));

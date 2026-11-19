@@ -27,6 +27,7 @@
 #   dopo           {sql, valore}: controllo sul database dopo il caso (sul motore diretto)
 #   motori         [diretto] oppure [trino]: limita il caso a quei motori
 #   grafici_min    (dashboard) numero minimo di grafici validi
+#   tipi_grafico   (dashboard) tipi di grafico che devono esserci, es. [box_plot]
 tolleranza: 0.005
 
 casi:
@@ -125,3 +126,8 @@ casi:
     percentuale: true
     tolleranza_assoluta: 0.02
     grafici_min: 4
+  - id: "7.12"
+    dashboard: "Box plot dell'importo degli ordini per canale, con media, mediana, ordine più alto e ordine più basso"
+    tipi_grafico: [box_plot]
+    valori: [23486.72, 25.49]
+    tolleranza: 0.001

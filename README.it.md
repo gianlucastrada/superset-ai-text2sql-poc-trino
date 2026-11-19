@@ -4,7 +4,7 @@
 
 Superset 6.1.0 su Kubernetes (Docker Desktop) con un'estensione che usa il modello **qwen3.6:35b** di Ollama sulla DGX Spark per:
 
-- **AI Assistant** (menu **AI > AI Assistant**, oppure pulsante in basso a destra): domanda in italiano, poi query SQL, risultati e **dashboard creata al volo** (KPI, andamento, barre, torta, tabella).
+- **AI Assistant** (menu **AI > AI Assistant**, oppure pulsante in basso a destra): domanda in italiano, poi query SQL, risultati e **dashboard creata al volo** con 18 tipi di grafico (KPI, linee, aree, barre, torta, imbuto, treemap, heatmap, pivot, bolle, box plot, istogramma, tabella...: vedi [Tipi di grafico](#tipi-di-grafico)).
 - **Text-to-SQL dentro SQL Lab**: pulsante **Text-to-SQL** in basso a destra. Genera la query e la apre in una nuova scheda di SQL Lab, oppure la inserisce (selezionata) nell'editor corrente.
 - **Due motori SQL**: PostgreSQL diretto oppure **Trino** davanti allo stesso Postgres. Con Trino il modello scrive SQL nel dialetto di Trino (vedi [Trino](#trino)). L'estensione funziona anche con altri database (Oracle, SQL Server, MySQL, Hive...): vedi [Adattare la POC a un altro database](#adattare-la-poc-a-un-altro-database).
 - **Registro delle richieste** con il voto degli utenti, **prove automatiche** con report, **cache Redis** e, se serve, **query asincrone** in SQL Lab con un worker Celery.
@@ -72,6 +72,22 @@ Altri script:
 
 Per verificare la POC con domande e valori attesi: **[PROVE.md](PROVE.md)**, oppure in automatico con le [prove automatiche](#prove-automatiche).
 
+## Tipi di grafico
+
+Le dashboard al volo usano 18 tipi di grafico di Superset, raggruppati per **forma dei dati**: il modello sa che forma deve avere il risultato della query, l'estensione la controlla prima di creare il grafico e, se non va, la spiega al modello e si fa correggere la query (`superset_ai/grafici.py`).
+
+| Forma dei dati | Tipi (nome nel piano) | Grafico di Superset |
+|---|---|---|
+| **Un valore** (1 riga, 1 numero) | KPI (`big_number`), indicatore a lancetta (`gauge`) | Big Number, Gauge |
+| **Andamento nel tempo** (data, valore, serie facoltativa) | linee (`line`), aree (`area`, impilate con la serie), KPI con andamento (`big_number_trend`) | Line, Area, Big Number with Trendline |
+| **Categorie** (categoria, valore, serie facoltativa) | barre (`bar`, affiancate con la serie), barre orizzontali (`bar_horizontal`), barre impilate (`bar_stacked`), torta (`pie`), ciambella (`donut`), imbuto (`funnel`), `treemap` | Bar, Pie, Funnel, Treemap |
+| **Due categorie** (categoria, serie, valore) | mappa di calore (`heatmap`), tabella pivot (`pivot`) | Heatmap, Pivot Table |
+| **Punti** (etichetta, due valori, dimensione facoltativa) | bolle / dispersione (`bubble`) | Bubble Chart |
+| **Osservazioni** (una riga per osservazione, non aggregata) | `box_plot` (mediana, quartili, media, minimo e massimo), istogramma (`histogram`) | Box Plot, Histogram |
+| **Dettaglio** | tabella (`table`) | Table |
+
+Esempio: *"Box plot dell'importo degli ordini per canale, con media e mediana"* produce un box plot per canale calcolato sui singoli ordini (i baffi arrivano all'ordine più alto e a quello più basso) e, se richiesti, KPI con la media. Ogni grafico creato si può poi modificare in Superset come un grafico normale.
+
 ## Prove automatiche
 
 `.\scripts\prove.ps1` pone al modello vero le domande di `config\vendite\prove.yaml` (gli stessi casi di PROVE.md, con i valori attesi), esegue la SQL generata e confronta i risultati. Le prove girano **dentro il pod di Superset**, con lo stesso modello, lo stesso database e la stessa configurazione della pagina AI.
@@ -93,7 +109,7 @@ Per verificare la POC con domande e valori attesi: **[PROVE.md](PROVE.md)**, opp
 ### AI Assistant (`http://localhost:8088/ai/`)
 
 - **Domanda → SQL**: scrivi per esempio *"Top 10 prodotti per margine"* e premi **Genera ed esegui** (o Ctrl+Invio). Vedi la spiegazione, la SQL (modificabile, con **Riesegui SQL**) e i risultati. **Apri in SQL Lab** porta la query in una nuova scheda.
-- **Dashboard al volo**: descrivi la dashboard, per esempio *"Panoramica vendite: KPI, andamento mensile, categorie e canali"*. Il modello progetta da 3 a 6 grafici. L'estensione esegue ogni query, corregge colonne e tipo di grafico in base ai dati reali, e chiede una correzione al modello se una query fallisce. Poi crea dataset, grafici e dashboard e la apre in una nuova scheda. I grafici con query ancora non valide vengono scartati e indicati nel registro.
+- **Dashboard al volo**: descrivi la dashboard, per esempio *"Panoramica vendite: KPI, andamento mensile, categorie e canali"*. Il modello progetta da 3 a 6 grafici. L'estensione esegue ogni query, corregge colonne e tipo di grafico in base ai dati reali, e chiede una correzione al modello se una query fallisce. Poi crea dataset, grafici e dashboard e la apre in una nuova scheda. I grafici con query ancora non valide vengono scartati e indicati nel registro. Si può chiedere un tipo di grafico preciso (*"box plot"*, *"heatmap"*, *"tabella pivot"*...): vedi [Tipi di grafico](#tipi-di-grafico).
 - **Motore** (in alto): *PostgreSQL (diretto)* o *Trino*. Vale per domande, dashboard e pannello di SQL Lab, e resta memorizzato nel browser.
 - **Verifica connessione** (in alto) controlla Ollama, la presenza del modello, il database e, se attivo, Trino (tabelle e viste visibili).
 - **Voto**: sotto ogni risposta e ogni dashboard, *"La risposta è corretta?"* con 👍 / 👎 (con il 👎 si può scrivere cosa non va).
@@ -213,6 +229,7 @@ superset-ai-poc\
       dati.py                        esecuzione query e descrizione dello schema (qualsiasi motore SQLAlchemy)
       dialetti.py                    differenze tra i motori SQL: regole per il modello, esempi, costrutti non validi
       sqlguard.py                    validazione SQL (una sola SELECT; JOIN che moltiplicano le righe; dialetto)
+      grafici.py                     tipi di grafico per le dashboard, forma dei dati e controlli
       registro.py                    registro delle richieste all'AI (tabella ai_registro)
       prove.py                       esecutore delle prove automatiche
       settings.py                    variabili d'ambiente
@@ -315,6 +332,7 @@ Su **Superset 6.1.0 con le stesse versioni delle librerie dell'immagine ufficial
 
 - login, pagina AI con esempi dalla configurazione, `/ai/api/info`, verifica connessione;
 - domanda → SQL → risultato; JOIN che moltiplica le righe bloccata e corretta al secondo tentativo;
+- **18 tipi di grafico**: una dashboard con tutti i tipi creata dalla pagina AI in Chrome (Playwright) e controllata grafico per grafico, con i valori corretti; correzione automatica di una query già aggregata chiesta per un box plot;
 - registro: scrittura da domanda, SQL rieseguita e dashboard; voto (e rifiuto di un id inesistente); elenco con riepilogo; CSV;
 - cache Redis: la seconda richiesta dei dati di un grafico arriva dalla cache;
 - SQL Lab asincrono: la query passa dal worker Celery (da *pending* a *success*) e il risultato finisce in Redis; `init-superset.sh` attiva l'esecuzione asincrona sul database;

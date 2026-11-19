@@ -144,7 +144,7 @@ def _caso_dashboard(caso: dict, prova: dict, motore: str) -> dict:
     righe: list[list] = []
     colonne: list[str] = []
     for g in validi:
-        ris = dati.esegui_query(g["sql"], limite=1000, motore=motore)
+        ris = dati.esegui_query(g["sql"], limite=10000, motore=motore)
         righe += ris["righe"]
         colonne += ris["colonne"]
     problemi = _confronta(
@@ -154,6 +154,9 @@ def _caso_dashboard(caso: dict, prova: dict, motore: str) -> dict:
         {"righe": righe, "colonne": colonne},
         {},
     )
+    for tipo in caso.get("tipi_grafico") or []:
+        if not any(g["tipo"] == tipo for g in validi):
+            problemi.append(f"nessun grafico di tipo {tipo} (tipi ottenuti: {', '.join(g['tipo'] for g in validi)})")
     minimo = int(caso.get("grafici_min", 1))
     if len(validi) < minimo:
         problemi.append(f"attesi almeno {minimo} grafici validi, ottenuti {len(validi)}")

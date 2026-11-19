@@ -14,7 +14,7 @@ from flask import Blueprint, jsonify, redirect, render_template, request, url_fo
 from flask_login import current_user
 from jinja2 import ChoiceLoader, FileSystemLoader
 
-from . import dati, dialetti, llm, registro, settings
+from . import dati, dialetti, grafici, llm, registro, settings
 from .sqlguard import SqlNonValida, controlla_logica, valida
 
 logger = logging.getLogger(__name__)
@@ -178,58 +178,19 @@ def _genera_ed_esegui(
     return {**risposta, "errore_sql": ultimo_errore, "motore": motore}
 
 
-def _primo(colonne: list[str], tipi: list[str], voluto: str, ammessi: set[str]) -> str:
-    if voluto in colonne and tipi[colonne.index(voluto)] in ammessi:
-        return voluto
-    for c, t in zip(colonne, tipi):
-        if t in ammessi:
-            return c
-    return ""
-
-
-# Forma dei dati che ogni tipo di grafico richiede (usata nelle richieste di correzione)
-_FORMA = {
-    "big_number": "1 sola riga con 1 colonna numerica (il valore del KPI).",
-    "bar": "2 colonne: x = categoria (testo) e y = valore numerico; una riga per categoria "
-           "(almeno 2, al massimo 15), ordinate per y decrescente.",
-    "pie": "2 colonne: x = categoria (testo) e y = valore numerico; da 2 a 8 righe.",
-    "line": "2 colonne: x = data di tipo date (es. {mese}) "
-            "e y = valore numerico; UNA RIGA PER PERIODO (es. una per mese, almeno 2), ordinata per x. "
-            "Serve GROUP BY sul periodo.",
-    "table": "piu' colonne di dettaglio, al massimo 50 righe.",
-}
-
-
-def _problema_forma(tipo: str, colonne: list[str], tipi: list[str], n: int) -> str | None:
-    """Controlla che i dati abbiano la forma adatta al tipo di grafico."""
-    numerici = [c for c, t in zip(colonne, tipi) if t == "numerico"]
-    date = [c for c, t in zip(colonne, tipi) if t == "data"]
-    testi = [c for c, t in zip(colonne, tipi) if t == "testo"]
-    if n == 0:
-        return "La query non restituisce righe."
-    if tipo == "big_number" and (n != 1 or not numerici):
-        return f"Per un KPI serve 1 riga con un valore numerico, ma la query restituisce {n} righe."
-    if tipo == "line" and (not date or n < 2 or not numerici):
-        motivo = f"la query restituisce {n} righe" + ("" if date else " e nessuna colonna di tipo data")
-        return f"Per un grafico a linee servono una colonna data e una riga per periodo: {motivo}."
-    if tipo in ("bar", "pie") and (n < 2 or not (testi or date) or not numerici):
-        return (f"Per un grafico a {'barre' if tipo == 'bar' else 'torta'} servono una colonna di "
-                f"categorie e piu' righe, ma la query restituisce {n} righe.")
-    return None
-
-
 def _verifica_grafico(
     g: dict[str, Any], richiesta: str, schema: str, motore: str = "diretto"
 ) -> dict[str, Any]:
     """Valida ed esegue la SQL di un grafico. Se la query fallisce o i dati non hanno la forma
-    adatta al tipo di grafico, chiede al modello fino a 2 correzioni spiegando la forma richiesta.
-    Solo alla fine, se serve, adatta il tipo di grafico ai dati (e lo segnala in "nota")."""
+    adatta al tipo di grafico (vedi grafici.py), chiede al modello fino a 2 correzioni spiegando
+    la forma richiesta. Solo alla fine, se serve, ripiega su KPI o tabella (e lo segnala in "nota")."""
     dial = dati.dialetto(motore)
     titolo = str(g.get("titolo") or "Grafico")
-    tipo_chiesto = g.get("tipo") if g.get("tipo") in llm.TIPI_GRAFICO else "table"
+    tipo_chiesto = g.get("tipo") if g.get("tipo") in grafici.TIPI else "table"
     tipo = tipo_chiesto
     sql = str(g.get("sql") or "")
     errore = ""
+    campi: dict[str, Any] = {}
     tentativi = 3  # la query originale + fino a 2 correzioni del modello
     for tentativo in range(tentativi):
         ultimo = tentativo + 1 == tentativi
@@ -238,8 +199,8 @@ def _verifica_grafico(
             avviso = controlla_logica(sql, dial, lambda t, c: dati.colonna_unica(t, c, motore))
             if avviso and not ultimo:
                 raise SqlNonValida(avviso)
-            ris = dati.esegui_query(sql, limite=1000, motore=motore)
-            problema = _problema_forma(tipo, ris["colonne"], ris["tipi"], len(ris["righe"]))
+            ris = dati.esegui_query(sql, limite=10000, motore=motore)
+            campi, problema = grafici.adatta(tipo, g, ris["colonne"], ris["tipi"], ris["righe"])
             if problema and not ultimo:
                 raise SqlNonValida(problema)
             errore = problema or ""
@@ -250,7 +211,7 @@ def _verifica_grafico(
                 logger.info("Grafico '%s': correzione %d richiesta (%s)", titolo, tentativo + 1, errore)
                 corr = llm.correggi_sql(
                     f"{richiesta}\nGrafico da correggere: '{titolo}', di tipo {tipo}.\n"
-                    f"Forma dei dati richiesta: {_FORMA[tipo].format(mese=llm.esempio_mese(dial))}",
+                    f"Forma dei dati richiesta: {grafici.forma_testo(tipo, llm.esempio_mese(dial))}",
                     sql, errore, schema, dial,
                 )
                 sql = corr["sql"]
@@ -261,32 +222,13 @@ def _verifica_grafico(
     colonne, tipi, n = ris["colonne"], ris["tipi"], len(ris["righe"])
     if n == 0:
         return {"titolo": titolo, "tipo": tipo, "errore": "La query non restituisce righe.", "sql": sql}
-
-    x = str(g.get("x") or "")
-    y = _primo(colonne, tipi, str(g.get("y") or ""), {"numerico"})
-    if tipo in ("bar", "pie", "line", "big_number") and not y:
-        tipo = "table"  # nessuna colonna numerica da disegnare
-    if tipo == "line":
-        x = _primo(colonne, tipi, x, {"data"})
-        if not x:
-            tipo = "bar"
-            x = str(g.get("x") or "")
-    if tipo in ("bar", "pie"):
-        x = _primo(colonne, tipi, x, {"testo", "data"})
-        if not x:
-            tipo = "big_number" if n == 1 else "table"
-    if tipo == "big_number":
-        x = ""
-        if n > 1:
-            tipo = "table"
-    if tipo == "table":
-        x, y = "", ""
+    if errore:  # dopo le correzioni la forma non va ancora: KPI o tabella
+        tipo, campi = grafici.ripiego(colonne, tipi, n)
     risultato = {
         "titolo": titolo,
         "tipo": tipo,
         "sql": sql,
-        "x": x,
-        "y": y,
+        **campi,
         "colonne": colonne,
         "tipi": tipi,
         "righe": n,
@@ -298,7 +240,6 @@ def _verifica_grafico(
         )
         logger.warning("Grafico '%s': %s | SQL: %s", titolo, risultato["nota"], sql)
     return risultato
-
 
 
 @lru_cache(maxsize=None)

@@ -118,6 +118,9 @@ Riquadro **Dashboard al volo**. Dopo ogni prova **torna alla scheda di partenza*
 | 7.9 | Una richiesta con titolo diverso ma stesse query | nuova dashboard, ma i dataset sono riutilizzati ("dataset riutilizzato") | |
 | 7.10 | Pulsante **Pulisci grafici non usati** (dopo aver cancellato dalle dashboard vecchie quelle inutili) | elimina solo grafici e dataset `ai_...` che non sono in nessuna dashboard; le dashboard rimaste continuano a funzionare | |
 | 7.11 | Pulsante **Tema** nell'intestazione della pagina AI | cicla auto, scuro e chiaro; la scelta resta dopo il refresh | |
+| 7.12 | *Box plot dell'importo degli ordini per canale, con media, mediana, ordine più alto e ordine più basso* | un box plot con un box per canale; passando il mouse si vedono mediana, quartili, media e numero di ordini; i baffi arrivano all'ordine più alto (**23.486,72 €**) e più basso (**25,49 €**); eventuali KPI con la media (**1.329,81 €**) | |
+| 7.13 | *Heatmap del fatturato per canale e categoria e tabella pivot del fatturato per area e canale* | heatmap 4 × 6 (massimo: Informatica / Online ≈ 778 k) e pivot con i totali (totale 6,51 M) | |
+| 7.14 | *Ordini per stato a imbuto, quota aziende/privati a ciambella, margine percentuale come indicatore a lancetta* | imbuto con 4 stati, ciambella 59% / 41%, lancetta su **30,7** | |
 
 > Per controllare la SQL di un grafico: menu **⋮** del grafico → **View query**.
 
@@ -233,6 +236,7 @@ FROM ordini;
 | 18/11/2026 | I file JavaScript dell'estensione avevano un numero di versione scritto a mano (`?v=5`): dopo un deploy il browser poteva continuare a usare la copia vecchia. Ora la versione è un'impronta del contenuto e cambia da sola | dopo il deploy: 7.5 (righe "tolto dalla dashboard" nel registro) |
 | 19/11/2026 | **Indipendenza dal motore**: lo schema si legge con l'Inspector di SQLAlchemy, il dialetto si ricava dalla connessione, regole ed esempi per ogni motore (`dialetti.py`). Il motore principale si chiama ora "diretto" (il vecchio nome "postgres" resta valido) | 0.5, 1.x e 10.x (nessuna differenza attesa) |
 | 19/11/2026 | **Registro delle richieste** con voto (tabella `ai_registro` nei metadati di Superset), **Redis** come cache, **worker Celery** facoltativo, **prove automatiche** (`scripts\prove.ps1`, `config\vendite\prove.yaml`) | sezione 12 |
+| 19/11/2026 | **18 tipi di grafico** per le dashboard (aggiunti gauge, KPI con andamento, area, barre orizzontali e impilate, ciambella, imbuto, treemap, heatmap, pivot, bolle, box plot, istogramma), con controllo della forma dei dati per ciascuno (`grafici.py`) | 7.1, 7.5, 7.12-7.14 |
 | 19/11/2026 | `config\vendite\database.env`: `AI_METADATI_DA=diretto`, cosi' con Trino lo schema continua a venire da PostgreSQL (viste e commenti) | 10.x |
 
 Per applicarle: `.\scripts\aggiorna-db.ps1` (viste) e `.\scripts\deploy.ps1` (nuova immagine con prompt e controlli; carica anche `config\vendite`).

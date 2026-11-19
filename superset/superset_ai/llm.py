@@ -8,14 +8,14 @@ from typing import Any
 
 import requests
 
-from . import dialetti, settings
+from . import dialetti, grafici, settings
 
 
 class ErroreLLM(RuntimeError):
     """Problema nel contattare il modello o nell'interpretarne la risposta."""
 
 
-TIPI_GRAFICO = ["big_number", "bar", "line", "pie", "table"]
+TIPI_GRAFICO = grafici.ELENCO
 
 _SCHEMA_SQL = {
     "type": "object",
@@ -37,6 +37,8 @@ _SCHEMA_DASHBOARD = {
                     "sql": {"type": "string"},
                     "x": {"type": "string"},
                     "y": {"type": "string"},
+                    "serie": {"type": "string"},
+                    "dimensione": {"type": "string"},
                 },
                 "required": ["titolo", "tipo", "sql", "x", "y"],
             },
@@ -105,22 +107,17 @@ SCHEMA DEL DATABASE:
 
 
 def _prompt_dashboard(schema: str, max_grafici: int, dialetto: str) -> str:
-    return f"""Sei un analista dati che progetta dashboard. Dalla richiesta dell'utente progetta una dashboard con da 3 a {max_grafici} grafici sui dati descritti dallo schema. Le query vanno scritte nel dialetto {_d(dialetto)["nome"]}. Per ogni grafico scrivi la query SQL che restituisce ESATTAMENTE i dati da disegnare, gia' aggregati.
+    return f"""Sei un analista dati che progetta dashboard. Dalla richiesta dell'utente progetta una dashboard con da 3 a {max_grafici} grafici sui dati descritti dallo schema. Le query vanno scritte nel dialetto {_d(dialetto)["nome"]}. Per ogni grafico scrivi la query SQL che restituisce ESATTAMENTE i dati da disegnare, gia' aggregati (tranne il box_plot, che vuole le singole osservazioni).
 
-Tipi di grafico ammessi e forma dei dati che la query deve restituire:
-- "big_number": un indicatore chiave (KPI). 1 riga con 1 colonna numerica. y = nome di quella colonna, x = "".
-- "bar": confronto tra categorie. 2 colonne: x = categoria (testo), y = valore numerico. Al massimo 15 righe, ordinate per y decrescente.
-- "pie": composizione in percentuale. 2 colonne: x = categoria (testo), y = valore numerico. Al massimo 8 categorie.
-- "line": andamento nel tempo. 2 colonne: x = data di tipo date (es. {esempio_mese(dialetto)}), y = valore numerico. Ordinata per x.
-- "table": elenco di dettaglio. Piu' colonne, al massimo 50 righe. x = "" e y = "".
+{grafici.descrizione_prompt(esempio_mese(dialetto))}
 
-Metti prima 1-3 grafici "big_number" con i KPI principali, poi gli altri. Titoli brevi in italiano.
+Metti prima 1-3 KPI ("big_number", "gauge" o "big_number_trend") con i valori principali, poi gli altri. Titoli brevi in italiano.
 I grafici della stessa dashboard devono essere COERENTI tra loro: stessa definizione di ogni misura e stessi filtri (ad esempio, se una misura esclude certe righe, le escludono TUTTI i grafici su quella misura; la somma dell'andamento mensile deve coincidere con il KPI del totale nello stesso periodo).
 
 {_regole_sql(dialetto)}
 
 Rispondi SOLO con un oggetto JSON:
-{{"titolo": "<titolo della dashboard>", "grafici": [{{"titolo": "...", "tipo": "big_number|bar|line|pie|table", "sql": "...", "x": "...", "y": "..."}}]}}
+{{"titolo": "<titolo della dashboard>", "grafici": [{{"titolo": "...", "tipo": "<uno dei tipi ammessi>", "sql": "...", "x": "...", "y": "...", "serie": "", "dimensione": ""}}]}}
 
 SCHEMA DEL DATABASE:
 {schema}"""

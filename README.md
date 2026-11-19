@@ -8,7 +8,7 @@ A customised **Apache Superset 6.1** that turns questions written in natural lan
 
 ## What it does
 
-- **AI Assistant page** (`/ai/`): write a question in Italian ("Top 10 products by margin") and get the generated SQL, an explanation and the result table. Describe a dashboard ("Sales overview: KPIs, monthly trend, categories and channels") and Superset creates the dataset, charts and dashboard for you.
+- **AI Assistant page** (`/ai/`): write a question in Italian ("Top 10 products by margin") and get the generated SQL, an explanation and the result table. Describe a dashboard ("Sales overview: KPIs, monthly trend, categories and channels") and Superset creates the dataset, charts and dashboard for you, choosing among **18 chart types** grouped by data shape: big number, gauge, big number with trendline, line, area, bar (vertical, horizontal, stacked), pie, donut, funnel, treemap, heatmap, pivot table, bubble, box plot, histogram and table.
 - **Text-to-SQL in SQL Lab**: a floating panel that generates a query and either opens it in a new SQL Lab tab or inserts it in the current editor.
 - **Dashboards are updated, not duplicated**: asking again for the same dashboard updates the existing one and reuses datasets and charts that already exist. A "clean up" button removes the AI-created charts and datasets that no dashboard uses.
 - **Two SQL engines**: PostgreSQL directly, or **Trino** in front of the same PostgreSQL. With Trino the model writes SQL in Trino's dialect; you pick the engine on the AI page and in the SQL Lab panel.
@@ -98,7 +98,7 @@ docs/architecture.png        architecture diagram (source: architecture.svg)
 k8s/                         namespace, Postgres, Superset, Trino, Redis and Celery worker manifests
 postgres/init/               schema, synthetic data (400 customers, 60 products, ~5,300 orders), views, permissions
 superset/                    Dockerfile, superset_config.py, init script
-superset/superset_ai/        the extension: views.py, llm.py, dati.py, dialetti.py, sqlguard.py, registro.py, prove.py, templates, static JS
+superset/superset_ai/        the extension: views.py, llm.py, dati.py, dialetti.py, grafici.py, sqlguard.py, registro.py, prove.py, templates, static JS
 scripts/                     PowerShell deploy / forward / test / Trino scripts
 config/vendite/              database-specific settings, business rules, UI examples and automated tests for the sample database
 PROVE.md                     test plan with expected values (Italian)
