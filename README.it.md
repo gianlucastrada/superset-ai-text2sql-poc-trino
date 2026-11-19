@@ -9,6 +9,8 @@ Superset 6.1.0 su Kubernetes (Docker Desktop) con un'estensione che usa il model
 - **Due motori SQL**: PostgreSQL diretto oppure **Trino** davanti allo stesso Postgres. Con Trino il modello scrive SQL nel dialetto di Trino (vedi [Trino](#trino)). L'estensione funziona anche con altri database (Oracle, SQL Server, MySQL, Hive...): vedi [Adattare la POC a un altro database](#adattare-la-poc-a-un-altro-database).
 - **Registro delle richieste** con il voto degli utenti, **prove automatiche** con report, **cache Redis** e, se serve, **query asincrone** in SQL Lab con un worker Celery.
 
+![Architettura](docs/architecture.png)
+
 I dati sono **inventati**: un negozio di elettronica con 400 clienti, 60 prodotti e circa 5.300 ordini (10.000 righe) da novembre 2025 a ottobre 2026.
 
 ```

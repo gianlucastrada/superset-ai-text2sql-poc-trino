@@ -1,124 +1,216 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1130" width="1600" height="1130" font-family="Inter, 'Segoe UI', Arial, Helvetica, sans-serif" xmlns:c2pa="http://c2pa.org/manifest">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1700 1440" width="1700" height="1440" font-family="Inter, 'Segoe UI', Arial, Helvetica, sans-serif">
   <defs>
     <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#334155"/></marker>
+    <marker id="arg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#64748b"/></marker>
   </defs>
-  <rect width="1600" height="1130" fill="#ffffff"/>
-  <text x="40" y="52" font-size="30" font-weight="700" fill="#0f172a">Superset AI Text-to-SQL POC</text>
-  <text x="40" y="82" font-size="17" fill="#475569">Architecture: a customised Apache Superset 6.1 talking to a local Qwen model served by Ollama, querying PostgreSQL directly or through Trino</text>
+  <rect width="1700" height="1440" fill="#ffffff"/>
+  <text x="30" y="52" font-size="30" font-weight="700" fill="#0f172a">Superset AI Text-to-SQL POC</text>
+  <text x="30" y="82" font-size="17" fill="#475569">Architecture: a customised Apache Superset 6.1 talking to a local Qwen model served by Ollama, querying any SQL engine directly or through Trino,</text>
+  <text x="30" y="104" font-size="17" fill="#475569">with a Redis cache, an optional Celery worker, a request log with user votes and automated tests</text>
 
   <!-- Browser -->
-  <rect x="40" y="210" width="240" height="300" rx="14" fill="#f8fafc" stroke="#94a3b8" stroke-width="2"/>
-  <text x="160" y="248" font-size="20" font-weight="700" fill="#0f172a" text-anchor="middle">User's browser</text>
-  <text x="160" y="276" font-size="14" fill="#475569" text-anchor="middle">http://localhost:8088</text>
-  <rect x="58" y="300" width="204" height="58" rx="8" fill="#e0f2fe" stroke="#38bdf8"/>
-  <text x="160" y="325" font-size="15" font-weight="600" fill="#0c4a6e" text-anchor="middle">AI Assistant page</text>
-  <text x="160" y="345" font-size="13" fill="#0c4a6e" text-anchor="middle">question → SQL · dashboard</text>
-  <rect x="58" y="372" width="204" height="58" rx="8" fill="#e0f2fe" stroke="#38bdf8"/>
-  <text x="160" y="397" font-size="15" font-weight="600" fill="#0c4a6e" text-anchor="middle">SQL Lab panel</text>
-  <text x="160" y="417" font-size="13" fill="#0c4a6e" text-anchor="middle">Text-to-SQL for ad-hoc queries</text>
-  <text x="160" y="470" font-size="13" fill="#475569" text-anchor="middle">Superset dashboards</text>
-  <text x="160" y="490" font-size="13" fill="#475569" text-anchor="middle">&amp; charts (native UI)</text>
+  <rect x="30" y="190" width="250" height="330" rx="14" fill="#f8fafc" stroke="#94a3b8" stroke-width="2"/>
+  <text x="155" y="228" font-size="20" font-weight="700" fill="#0f172a" text-anchor="middle">User's browser</text>
+  <text x="155" y="254" font-size="14" fill="#475569" text-anchor="middle">http://localhost:8088</text>
+  <rect x="46" y="272" width="218" height="74" rx="8" fill="#e0f2fe" stroke="#38bdf8"/>
+  <text x="155" y="296" font-size="15" font-weight="600" fill="#0c4a6e" text-anchor="middle">AI Assistant page</text>
+  <text x="155" y="316" font-size="13" fill="#0c4a6e" text-anchor="middle">question → SQL · dashboard</text>
+  <text x="155" y="335" font-size="13" fill="#0c4a6e" text-anchor="middle">votes · request log · CSV</text>
+  <rect x="46" y="358" width="218" height="58" rx="8" fill="#e0f2fe" stroke="#38bdf8"/>
+  <text x="155" y="382" font-size="15" font-weight="600" fill="#0c4a6e" text-anchor="middle">SQL Lab panel</text>
+  <text x="155" y="402" font-size="13" fill="#0c4a6e" text-anchor="middle">Text-to-SQL for ad-hoc queries</text>
+  <text x="155" y="462" font-size="13" fill="#475569" text-anchor="middle">Superset dashboards</text>
+  <text x="155" y="482" font-size="13" fill="#475569" text-anchor="middle">&amp; charts (native UI)</text>
+
+  <!-- PC: scripts -->
+  <rect x="30" y="580" width="250" height="250" rx="14" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+  <text x="155" y="614" font-size="18" font-weight="700" fill="#78350f" text-anchor="middle">Your PC (PowerShell)</text>
+  <text x="48" y="646" font-size="14" font-weight="600" fill="#0f172a" font-family="Consolas, monospace">deploy.ps1</text>
+  <text x="48" y="666" font-size="12.5" fill="#334155">builds and deploys; -Config picks</text>
+  <text x="48" y="684" font-size="12.5" fill="#334155">config/&lt;database&gt;, -Asincrono adds</text>
+  <text x="48" y="702" font-size="12.5" fill="#334155">the Celery worker</text>
+  <text x="48" y="734" font-size="14" font-weight="600" fill="#0f172a" font-family="Consolas, monospace">prove.ps1</text>
+  <text x="48" y="754" font-size="12.5" fill="#334155">automated tests run inside the</text>
+  <text x="48" y="772" font-size="12.5" fill="#334155">Superset pod; report saved in</text>
+  <text x="48" y="790" font-size="12.5" fill="#334155" font-family="Consolas, monospace">prove-risultati\</text>
+  <text x="48" y="810" font-size="12.5" fill="#334155">(compared with the previous run)</text>
 
   <!-- Kubernetes -->
-  <rect x="400" y="110" width="800" height="840" rx="18" fill="#ffffff" stroke="#64748b" stroke-width="2.5" stroke-dasharray="10 7"/>
-  <text x="424" y="145" font-size="19" font-weight="700" fill="#0f172a">Docker Desktop Kubernetes</text>
-  <text x="424" y="167" font-size="14" fill="#475569">namespace <tspan font-family="Consolas, monospace">superset-ai</tspan> · access via <tspan font-family="Consolas, monospace">kubectl port-forward</tspan></text>
+  <rect x="330" y="122" width="930" height="1068" rx="18" fill="#ffffff" stroke="#64748b" stroke-width="2.5" stroke-dasharray="10 7"/>
+  <text x="354" y="156" font-size="19" font-weight="700" fill="#0f172a">Docker Desktop Kubernetes</text>
+  <text x="354" y="178" font-size="14" fill="#475569">namespace <tspan font-family="Consolas, monospace">superset-ai</tspan> · access via <tspan font-family="Consolas, monospace">kubectl port-forward</tspan></text>
 
   <!-- Superset pod -->
-  <rect x="424" y="185" width="752" height="310" rx="14" fill="#ecfeff" stroke="#0891b2" stroke-width="2"/>
-  <text x="446" y="215" font-size="18" font-weight="700" fill="#155e75">Pod: Apache Superset 6.1.0</text>
-  <rect x="446" y="232" width="708" height="246" rx="12" fill="#ffffff" stroke="#22b8cf" stroke-width="1.5"/>
-  <text x="466" y="260" font-size="16" font-weight="700" fill="#0f172a">superset_ai extension</text>
-  <text x="1134" y="260" font-size="13" fill="#64748b" text-anchor="end">Flask blueprint + JavaScript, no frontend fork</text>
+  <rect x="354" y="192" width="882" height="368" rx="14" fill="#ecfeff" stroke="#0891b2" stroke-width="2"/>
+  <text x="376" y="222" font-size="18" font-weight="700" fill="#155e75">Pod: Apache Superset 6.1.0</text>
+  <rect x="376" y="236" width="838" height="254" rx="12" fill="#ffffff" stroke="#22b8cf" stroke-width="1.5"/>
+  <text x="396" y="262" font-size="16" font-weight="700" fill="#0f172a">superset_ai extension</text>
+  <text x="1194" y="262" font-size="13" fill="#64748b" text-anchor="end">Flask blueprint + JavaScript, no frontend fork · no table names in the code</text>
 
-  <rect x="466" y="278" width="330" height="88" rx="9" fill="#f0fdfa" stroke="#5eead4"/>
-  <text x="482" y="303" font-size="15" font-weight="600" fill="#115e59">views.py</text>
-  <text x="482" y="326" font-size="13" fill="#334155">/ai page and REST API, menu hook,</text>
-  <text x="482" y="345" font-size="13" fill="#334155">dashboard / chart / dataset creation</text>
-  <rect x="806" y="278" width="330" height="88" rx="9" fill="#f0fdfa" stroke="#5eead4"/>
-  <text x="822" y="303" font-size="15" font-weight="600" fill="#115e59">llm.py</text>
-  <text x="822" y="326" font-size="13" fill="#334155">prompts, JSON-schema output,</text>
-  <text x="822" y="345" font-size="13" fill="#334155">self-correction loop</text>
-  <rect x="466" y="378" width="330" height="88" rx="9" fill="#f0fdfa" stroke="#5eead4"/>
-  <text x="482" y="403" font-size="15" font-weight="600" fill="#115e59">dati.py</text>
-  <text x="482" y="426" font-size="13" fill="#334155">schema description for the model,</text>
-  <text x="482" y="445" font-size="13" fill="#334155">read-only query execution</text>
-  <rect x="806" y="378" width="330" height="88" rx="9" fill="#f0fdfa" stroke="#5eead4"/>
-  <text x="822" y="403" font-size="15" font-weight="600" fill="#115e59">sqlguard.py</text>
-  <text x="822" y="426" font-size="13" fill="#334155">single SELECT only (sqlglot),</text>
-  <text x="822" y="445" font-size="13" fill="#334155">logic lint (e.g. COUNT(*) on lines)</text>
+  <g font-size="12.5" fill="#334155">
+    <rect x="396" y="276" width="192" height="94" rx="9" fill="#f0fdfa" stroke="#5eead4"/>
+    <text x="410" y="300" font-size="15" font-weight="600" fill="#115e59">views.py</text>
+    <text x="410" y="322">/ai page and REST API,</text>
+    <text x="410" y="340">menu hook, votes and</text>
+    <text x="410" y="358">request-log endpoints</text>
+    <rect x="600" y="276" width="192" height="94" rx="9" fill="#f0fdfa" stroke="#5eead4"/>
+    <text x="614" y="300" font-size="15" font-weight="600" fill="#115e59">llm.py</text>
+    <text x="614" y="322">prompts, JSON-schema</text>
+    <text x="614" y="340">output, business rules,</text>
+    <text x="614" y="358">self-correction loop</text>
+    <rect x="804" y="276" width="192" height="94" rx="9" fill="#f0fdfa" stroke="#5eead4"/>
+    <text x="818" y="300" font-size="15" font-weight="600" fill="#115e59">dialetti.py</text>
+    <text x="818" y="322">SQL rules and examples</text>
+    <text x="818" y="340">per engine, constructs</text>
+    <text x="818" y="358">each engine rejects</text>
+    <rect x="1008" y="276" width="192" height="94" rx="9" fill="#f0fdfa" stroke="#5eead4"/>
+    <text x="1022" y="300" font-size="15" font-weight="600" fill="#115e59">sqlguard.py</text>
+    <text x="1022" y="322">single SELECT (sqlglot),</text>
+    <text x="1022" y="340">dialect check, joins that</text>
+    <text x="1022" y="358">multiply rows</text>
 
-  <g transform="translate(0,150)">
-  <!-- Postgres pod -->
-  <rect x="424" y="530" width="752" height="250" rx="14" fill="#eff6ff" stroke="#336791" stroke-width="2"/>
-  <text x="446" y="560" font-size="18" font-weight="700" fill="#1e3a5f">Pod: PostgreSQL 16</text>
-  <rect x="446" y="578" width="340" height="186" rx="10" fill="#ffffff" stroke="#60a5fa" stroke-width="1.5"/>
-  <text x="464" y="604" font-size="16" font-weight="700" fill="#0f172a">DB <tspan font-family="Consolas, monospace">vendite</tspan> (sample data)</text>
-  <text x="464" y="630" font-size="13" fill="#334155">customers, products, orders, order lines</text>
-  <text x="464" y="652" font-size="13" fill="#334155">views: <tspan font-family="Consolas, monospace">v_vendite</tspan>, <tspan font-family="Consolas, monospace">v_vendite_tutte</tspan>,</text>
-  <text x="464" y="672" font-size="13" fill="#334155"><tspan font-family="Consolas, monospace">v_ordini</tspan> + comments that guide the model</text>
-  <rect x="464" y="692" width="304" height="52" rx="8" fill="#dcfce7" stroke="#4ade80"/>
-  <text x="616" y="714" font-size="14" font-weight="600" fill="#14532d" text-anchor="middle">role <tspan font-family="Consolas, monospace">ai_reader</tspan>: SELECT only</text>
-  <text x="616" y="733" font-size="12" fill="#14532d" text-anchor="middle">read-only transactions · 30 s timeout</text>
-  <rect x="814" y="578" width="340" height="186" rx="10" fill="#ffffff" stroke="#60a5fa" stroke-width="1.5"/>
-  <text x="832" y="604" font-size="16" font-weight="700" fill="#0f172a">DB <tspan font-family="Consolas, monospace">superset</tspan> (metadata)</text>
-  <text x="832" y="630" font-size="13" fill="#334155">users and permissions</text>
-  <text x="832" y="652" font-size="13" fill="#334155">datasets, charts, dashboards</text>
-  <text x="832" y="674" font-size="13" fill="#334155">created by the AI assistant</text>
-
+    <rect x="396" y="382" width="192" height="94" rx="9" fill="#f0fdfa" stroke="#5eead4"/>
+    <text x="410" y="406" font-size="15" font-weight="600" fill="#115e59">dati.py</text>
+    <text x="410" y="428">schema via SQLAlchemy</text>
+    <text x="410" y="446">Inspector, read-only</text>
+    <text x="410" y="464">queries on any engine</text>
+    <rect x="600" y="382" width="192" height="94" rx="9" fill="#f0fdfa" stroke="#5eead4"/>
+    <text x="614" y="406" font-size="15" font-weight="600" fill="#115e59">registro.py</text>
+    <text x="614" y="428">log of every request:</text>
+    <text x="614" y="446">SQL, outcome, time,</text>
+    <text x="614" y="464">user vote and note</text>
+    <rect x="804" y="382" width="192" height="94" rx="9" fill="#f0fdfa" stroke="#5eead4"/>
+    <text x="818" y="406" font-size="15" font-weight="600" fill="#115e59">prove.py</text>
+    <text x="818" y="428">automated tests against</text>
+    <text x="818" y="446">expected values,</text>
+    <text x="818" y="464">Markdown/JSON report</text>
+    <rect x="1008" y="382" width="192" height="94" rx="9" fill="#fffbeb" stroke="#fbbf24"/>
+    <text x="1022" y="406" font-size="15" font-weight="600" fill="#78350f">config/&lt;database&gt;</text>
+    <text x="1022" y="428">settings, business rules,</text>
+    <text x="1022" y="446">UI examples, tests</text>
+    <text x="1022" y="464">→ ConfigMap</text>
   </g>
-  <text x="682" y="509" font-size="13" font-weight="600" fill="#86198f">via Trino</text>
-  <text x="782" y="598" font-size="13" font-weight="600" fill="#334155">direct</text>
-  <text x="782" y="615" font-size="13" font-weight="600" fill="#334155">PostgreSQL</text>
-  <!-- Trino pod -->
-  <rect x="424" y="530" width="300" height="130" rx="14" fill="#fdf4ff" stroke="#c026d3" stroke-width="2"/>
-  <text x="446" y="560" font-size="18" font-weight="700" fill="#701a75">Pod: Trino 482 <tspan font-size="13" font-weight="400" fill="#86198f">(optional)</tspan></text>
-  <text x="446" y="586" font-size="13" fill="#334155">catalog <tspan font-family="Consolas, monospace">postgresql</tspan> → DB vendite</text>
-  <text x="446" y="607" font-size="13" fill="#334155">model writes Trino SQL dialect</text>
-  <text x="446" y="628" font-size="13" fill="#334155">user <tspan font-family="Consolas, monospace">ai_reader</tspan> · memory limit 3 GB</text>
-  <text x="446" y="649" font-size="12" fill="#86198f">engine chosen on the AI page</text>
 
-  <!-- Spark -->
-  <rect x="1290" y="210" width="270" height="300" rx="14" fill="#f0fdf4" stroke="#16a34a" stroke-width="2"/>
-  <text x="1425" y="244" font-size="20" font-weight="700" fill="#14532d" text-anchor="middle">DGX Spark</text>
-  <text x="1425" y="266" font-size="13" fill="#166534" text-anchor="middle">company network / VPN</text>
-  <rect x="1308" y="288" width="234" height="102" rx="9" fill="#ffffff" stroke="#4ade80"/>
-  <text x="1425" y="316" font-size="16" font-weight="700" fill="#0f172a" text-anchor="middle">Ollama · port 11434</text>
-  <text x="1425" y="342" font-size="15" font-weight="600" fill="#166534" text-anchor="middle">Qwen3.6 · 35B params</text>
-  <text x="1425" y="364" font-size="13" fill="#334155" text-anchor="middle">~22 GB model</text>
-  <text x="1425" y="460" font-size="13" fill="#166534" text-anchor="middle">121 GB unified memory</text>
-  <text x="1425" y="480" font-size="13" fill="#166534" text-anchor="middle">(shared with other teams)</text>
+  <rect x="376" y="502" width="838" height="42" rx="10" fill="#cffafe" stroke="#22b8cf"/>
+  <text x="795" y="528" font-size="14" fill="#155e75" text-anchor="middle"><tspan font-weight="700">Superset core</tspan> · REST API (datasets, charts, dashboards) · SQL Lab · cache → Redis · async queries → Celery</text>
+
+  <!-- Trino pod -->
+  <rect x="354" y="610" width="270" height="150" rx="14" fill="#fdf4ff" stroke="#c026d3" stroke-width="2"/>
+  <text x="372" y="640" font-size="18" font-weight="700" fill="#701a75">Pod: Trino 482 <tspan font-size="13" font-weight="400" fill="#86198f">(optional)</tspan></text>
+  <text x="372" y="666" font-size="13" fill="#334155">catalog <tspan font-family="Consolas, monospace">postgresql</tspan> → DB vendite</text>
+  <text x="372" y="687" font-size="13" fill="#334155">model writes Trino SQL</text>
+  <text x="372" y="708" font-size="13" fill="#334155">user <tspan font-family="Consolas, monospace">ai_reader</tspan> · limit 3 GB</text>
+  <text x="372" y="740" font-size="12" fill="#86198f">engine chosen on the AI page</text>
+
+  <!-- Redis pod -->
+  <rect x="704" y="610" width="234" height="150" rx="14" fill="#fef2f2" stroke="#dc2626" stroke-width="2"/>
+  <text x="722" y="640" font-size="18" font-weight="700" fill="#7f1d1d">Pod: Redis 7</text>
+  <text x="722" y="666" font-size="13" fill="#334155">Superset cache: chart data,</text>
+  <text x="722" y="687" font-size="13" fill="#334155">metadata, filters, Explore</text>
+  <text x="722" y="708" font-size="13" fill="#334155">Celery queue · SQL Lab results</text>
+  <text x="722" y="740" font-size="12" fill="#991b1b">in memory only · 200 MB max</text>
+
+  <!-- Celery worker pod -->
+  <rect x="984" y="610" width="200" height="150" rx="14" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+  <text x="1000" y="640" font-size="18" font-weight="700" fill="#4c1d95">Pod: Celery</text>
+  <text x="1000" y="662" font-size="13" font-weight="400" fill="#6d28d9">worker (optional)</text>
+  <text x="1000" y="686" font-size="13" fill="#334155">runs SQL Lab queries</text>
+  <text x="1000" y="707" font-size="13" fill="#334155">in the background</text>
+  <text x="1000" y="740" font-size="12" fill="#6d28d9">deploy.ps1 -Asincrono</text>
+
+  <!-- Postgres pod -->
+  <rect x="354" y="830" width="882" height="330" rx="14" fill="#eff6ff" stroke="#336791" stroke-width="2"/>
+  <text x="376" y="860" font-size="18" font-weight="700" fill="#1e3a5f">Pod: PostgreSQL 16</text>
+  <rect x="376" y="876" width="420" height="266" rx="10" fill="#ffffff" stroke="#60a5fa" stroke-width="1.5"/>
+  <text x="394" y="902" font-size="16" font-weight="700" fill="#0f172a">DB <tspan font-family="Consolas, monospace">vendite</tspan> (sample data)</text>
+  <text x="394" y="928" font-size="13" fill="#334155">customers, products, orders, order lines</text>
+  <text x="394" y="950" font-size="13" fill="#334155">analysis views with the business rules applied:</text>
+  <text x="394" y="970" font-size="13" fill="#334155" font-family="Consolas, monospace">v_vendite, v_vendite_tutte,</text>
+  <text x="394" y="990" font-size="13" fill="#334155" font-family="Consolas, monospace">v_ordini, v_ordini_tutti</text>
+  <text x="394" y="1012" font-size="13" fill="#334155">+ comments on tables and columns</text>
+  <text x="394" y="1032" font-size="13" fill="#334155">that guide the model</text>
+  <rect x="394" y="1058" width="384" height="62" rx="8" fill="#dcfce7" stroke="#4ade80"/>
+  <text x="586" y="1083" font-size="14" font-weight="600" fill="#14532d" text-anchor="middle">role <tspan font-family="Consolas, monospace">ai_reader</tspan>: SELECT only</text>
+  <text x="586" y="1104" font-size="12" fill="#14532d" text-anchor="middle">read-only transactions · 30 s timeout</text>
+  <rect x="816" y="876" width="398" height="266" rx="10" fill="#ffffff" stroke="#60a5fa" stroke-width="1.5"/>
+  <text x="834" y="902" font-size="16" font-weight="700" fill="#0f172a">DB <tspan font-family="Consolas, monospace">superset</tspan> (metadata)</text>
+  <text x="834" y="928" font-size="13" fill="#334155">users and permissions</text>
+  <text x="834" y="950" font-size="13" fill="#334155">datasets, charts, dashboards</text>
+  <text x="834" y="970" font-size="13" fill="#334155">created by the AI assistant</text>
+  <rect x="834" y="994" width="362" height="80" rx="8" fill="#fef9c3" stroke="#facc15"/>
+  <text x="850" y="1018" font-size="14" font-weight="600" fill="#713f12">table <tspan font-family="Consolas, monospace">ai_registro</tspan></text>
+  <text x="850" y="1040" font-size="12.5" fill="#334155">every question, dashboard and re-run:</text>
+  <text x="850" y="1059" font-size="12.5" fill="#334155">SQL, outcome, rows, time, user, vote</text>
+
+  <!-- DGX Spark -->
+  <rect x="1310" y="190" width="360" height="330" rx="14" fill="#f0fdf4" stroke="#16a34a" stroke-width="2"/>
+  <text x="1490" y="226" font-size="20" font-weight="700" fill="#14532d" text-anchor="middle">DGX Spark</text>
+  <text x="1490" y="248" font-size="13" fill="#166534" text-anchor="middle">company network / VPN</text>
+  <rect x="1336" y="270" width="308" height="112" rx="9" fill="#ffffff" stroke="#4ade80"/>
+  <text x="1490" y="300" font-size="16" font-weight="700" fill="#0f172a" text-anchor="middle">Ollama · port 11434</text>
+  <text x="1490" y="326" font-size="15" font-weight="600" fill="#166534" text-anchor="middle">Qwen3.6 · 35B params (MoE, 3B active)</text>
+  <text x="1490" y="350" font-size="13" fill="#334155" text-anchor="middle">~23 GB loaded · JSON-schema output</text>
+  <text x="1490" y="370" font-size="13" fill="#334155" text-anchor="middle">think: false</text>
+  <text x="1490" y="460" font-size="13" fill="#166534" text-anchor="middle">121 GB unified memory</text>
+  <text x="1490" y="480" font-size="13" fill="#166534" text-anchor="middle">(shared with other teams)</text>
+
+  <!-- Other sources -->
+  <rect x="1310" y="830" width="360" height="200" rx="14" fill="#f8fafc" stroke="#64748b" stroke-width="2" stroke-dasharray="8 6"/>
+  <text x="1490" y="864" font-size="18" font-weight="700" fill="#0f172a" text-anchor="middle">Other data sources</text>
+  <text x="1490" y="886" font-size="13" fill="#475569" text-anchor="middle">instead of the demo PostgreSQL</text>
+  <text x="1490" y="918" font-size="13" fill="#334155" text-anchor="middle">Oracle · SQL Server · MySQL · Hive</text>
+  <text x="1490" y="938" font-size="13" fill="#334155" text-anchor="middle">Spark · Snowflake · BigQuery · ...</text>
+  <text x="1490" y="968" font-size="13" fill="#334155" text-anchor="middle">any SQLAlchemy engine (<tspan font-family="Consolas, monospace">AI_DATA_URI</tspan>)</text>
+  <text x="1490" y="988" font-size="13" fill="#334155" text-anchor="middle">dialect detected from the URL,</text>
+  <text x="1490" y="1008" font-size="13" fill="#334155" text-anchor="middle">read-only user, driver in the image</text>
 
   <!-- Arrows -->
   <g stroke="#334155" stroke-width="2.5" fill="none" marker-end="url(#ar)">
-    <path d="M280,300 L424,300"/>
-    <path d="M424,420 L280,420" />
-    <path d="M1176,300 L1290,300"/>
-    <path d="M1290,420 L1176,420"/>
-    <path d="M660,478 L660,530"/>
-    <path d="M660,660 L660,728"/>
-    <path d="M760,478 L760,728"/>
-    <path d="M980,478 L980,728"/>
+    <path d="M280,300 L354,300"/>
+    <path d="M354,440 L280,440"/>
+    <path d="M1236,300 L1310,300"/>
+    <path d="M1310,440 L1236,440"/>
+    <path d="M490,560 L490,610"/>
+    <path d="M490,760 L490,830"/>
+    <path d="M664,560 L664,830"/>
+    <path d="M1210,560 L1210,876"/>
+  </g>
+  <g stroke="#64748b" stroke-width="2" fill="none" marker-end="url(#arg)" marker-start="url(#arg)">
+    <path d="M829,560 L829,610"/>
+    <path d="M938,685 L984,685"/>
+  </g>
+  <g stroke="#64748b" stroke-width="2" fill="none" marker-end="url(#arg)">
+    <path d="M1060,760 L1060,800 L770,800 L770,876"/>
+    <path d="M280,705 L310,705 L310,520 L354,520"/>
+  </g>
+  <path d="M1236,520 L1280,520 L1280,930 L1310,930" stroke="#64748b" stroke-width="2" fill="none" stroke-dasharray="7 5" marker-end="url(#arg)"/>
+
+  <g font-size="12" font-weight="600" fill="#475569">
+    <text x="680" y="800">direct</text>
+    <text x="837" y="592">cache</text>
+    <text x="880" y="792">async SQL Lab</text>
+    <text x="1288" y="900" fill="#64748b">or</text>
+    <text x="0" y="0" fill="#92400e" transform="translate(326,690) rotate(-90)">kubectl exec</text>
   </g>
   <g font-size="15" font-weight="700" fill="#ffffff" text-anchor="middle">
-    <g><circle cx="352" cy="300" r="15" fill="#0f172a"/><text x="352" y="305">1</text></g>
-    <g><circle cx="352" cy="420" r="15" fill="#0f172a"/><text x="352" y="425">5</text></g>
-    <g><circle cx="1233" cy="300" r="15" fill="#0f172a"/><text x="1233" y="305">2</text></g>
-    <g><circle cx="1233" cy="420" r="15" fill="#0f172a"/><text x="1233" y="425">3</text></g>
-    <g><circle cx="660" cy="504" r="15" fill="#0f172a"/><text x="660" y="509">4</text></g>
-    <g><circle cx="760" cy="600" r="15" fill="#0f172a"/><text x="760" y="605">4</text></g>
-    <g><circle cx="980" cy="600" r="15" fill="#0f172a"/><text x="980" y="605">6</text></g>
+    <g><circle cx="317" cy="300" r="15" fill="#0f172a"/><text x="317" y="305">1</text></g>
+    <g><circle cx="317" cy="440" r="15" fill="#0f172a"/><text x="317" y="445">5</text></g>
+    <g><circle cx="1273" cy="300" r="15" fill="#0f172a"/><text x="1273" y="305">2</text></g>
+    <g><circle cx="1273" cy="440" r="15" fill="#0f172a"/><text x="1273" y="445">3</text></g>
+    <g><circle cx="490" cy="585" r="15" fill="#0f172a"/><text x="490" y="590">4</text></g>
+    <g><circle cx="664" cy="700" r="15" fill="#0f172a"/><text x="664" y="705">4</text></g>
+    <g><circle cx="1210" cy="800" r="15" fill="#0f172a"/><text x="1210" y="805">6</text></g>
   </g>
 
-  <g transform="translate(0,150)">
   <!-- Legend -->
-  <text x="40" y="836" font-size="17" font-weight="700" fill="#0f172a">Request flow</text>
-  <g font-size="14.5" fill="#334155">
-    <text x="40" y="864"><tspan font-weight="700">1</tspan>  The user asks a question in Italian, or describes a dashboard.</text>
-    <text x="40" y="888"><tspan font-weight="700">2</tspan>  The extension sends the question plus a description of the schema (comments, sample values, reference periods) to Ollama.</text>
-    <text x="40" y="912"><tspan font-weight="700">3</tspan>  Qwen answers with structured JSON: the SQL, or a dashboard plan with one query per chart.</text>
-    <text x="40" y="936"><tspan font-weight="700">4</tspan>  Each query is validated (single SELECT) and run read-only as <tspan font-family="Consolas, monospace">ai_reader</tspan>, directly or through Trino; on error or wrong shape, the model fixes it.</text>
-    <text x="40" y="960"><tspan font-weight="700">5-6</tspan>  The page calls Superset's REST API to create (or update, never duplicate) dataset, chart and dashboard, stored in the metadata DB.</text>
+  <text x="30" y="1230" font-size="17" font-weight="700" fill="#0f172a">Request flow</text>
+  <g font-size="14" fill="#334155">
+    <text x="30" y="1258"><tspan font-weight="700">1</tspan>  The user asks a question in Italian, or describes a dashboard.</text>
+    <text x="30" y="1281"><tspan font-weight="700">2</tspan>  The extension sends the question, the schema (read with SQLAlchemy's Inspector: comments, sample values, reference periods), the engine's SQL rules and the business rules to Ollama.</text>
+    <text x="30" y="1304"><tspan font-weight="700">3</tspan>  Qwen answers with structured JSON: the SQL, or a dashboard plan with one query per chart.</text>
+    <text x="30" y="1327"><tspan font-weight="700">4</tspan>  Each query is checked (single SELECT, engine dialect, joins that multiply rows) and run read-only, directly or through Trino; on error or wrong shape, the model fixes it.</text>
+    <text x="30" y="1350"><tspan font-weight="700">5</tspan>  The answer comes back with the result and a thumbs up / down vote.</text>
+    <text x="30" y="1373"><tspan font-weight="700">6</tspan>  The page calls Superset's REST API to create or update dataset, chart and dashboard; every request and vote is logged in <tspan font-family="Consolas, monospace">ai_registro</tspan>.</text>
   </g>
-<metadata><c2pa:manifest>AAAWgmp1bWIAAAAeanVtZGMycGEAEQAQgAAAqgA4m3EDYzJwYQAAABZcanVtYgAAAEdqdW1kYzJtYQARABCAAACqADibcQN1cm46YzJwYTo0NjQ2MTQxNC1lMjgyLTRmY2YtOWE2NC05OTZlMmNjYTAyOTgAAAADl2p1bWIAAAApanVtZGMyYXMAEQAQgAAAqgA4m3EDYzJwYS5hc3NlcnRpb25zAAAAALxqdW1iAAAARGp1bWRjYm9yABEAEIAAAKoAOJtxE2MycGEuaW5ncmVkaWVudC52MwAAAAAYYzJzaPw7cxa/cxxULALFs6CO3R8AAABwY2JvcqNpZGM6Zm9ybWF0bWltYWdlL3N2Zyt4bWxqaW5zdGFuY2VJRHgseG1wOmlpZDpiYTc4NDUzNi0xZmIyLTQzMDktOTBmYy1lMzJmYTJhZmQ4NTZscmVsYXRpb25zaGlwaHBhcmVudE9mAAAB4mp1bWIAAABBanVtZGNib3IAEQAQgAAAqgA4m3ETYzJwYS5hY3Rpb25zLnYyAAAAABhjMnNoXBXI0vBBTbxKUUOh653FigAAAZljYm9yomdhY3Rpb25zgqJmYWN0aW9ua2MycGEub3BlbmVkanBhcmFtZXRlcnOha2luZ3JlZGllbnRzgaJjdXJseC1zZWxmI2p1bWJmPWMycGEuYXNzZXJ0aW9ucy9jMnBhLmluZ3JlZGllbnQudjNkaGFzaFgg0LpvS3idqzcJiLjVuzTAOnEsuBWgZKTwcvXXdOJxWgGkZmFjdGlvbngdY29tLmFudGhyb3BpYy5jbGF1ZGUucHJvdmlkZWRqcGFyYW1ldGVyc6F4H2NvbS5hbnRocm9waWMub3JpZ2luLWNvbmZpZGVuY2VndW5rbm93bmtkZXNjcmlwdGlvbnhmQ2xhdWRlIHByb3ZpZGVkIHRoaXMgZmlsZSBhdCB0aGUgcmVxdWVzdCBvZiBhIHVzZXIgYW5kIG1heSBoYXZlIGNyZWF0ZWQgb3IgbW9kaWZpZWQgdGhlIGZpbGUgY29udGVudHMubXNvZnR3YXJlQWdlbnShZG5hbWVmQ2xhdWRlcmFsbEFjdGlvbnNJbmNsdWRlZPUAAADIanVtYgAAAEBqdW1kY2JvcgARABCAAACqADibcRNjMnBhLmhhc2guZGF0YQAAAAAYYzJzaID+1/yxGEI5xsA+n3PAImwAAACAY2JvcqVjYWxnZnNoYTI1NmNwYWRMAAAAAAAAAAAAAAAAZGhhc2hYIH+XYmRC3Ffet3BPnFnaYXt2eSNKdtaNnYlxKB0Os1xuZG5hbWVuanVtYmYgbWFuaWZlc3RqZXhjbHVzaW9uc4GiZXN0YXJ0GSQyZmxlbmd0aBkeBAAAAj5qdW1iAAAAJ2p1bWRjMmNsABEAEIAAAKoAOJtxA2MycGEuY2xhaW0udjIAAAACD2Nib3KlY2FsZ2ZzaGEyNTZpc2lnbmF0dXJleE1zZWxmI2p1bWJmPS9jMnBhL3VybjpjMnBhOjQ2NDYxNDE0LWUyODItNGZjZi05YTY0LTk5NmUyY2NhMDI5OC9jMnBhLnNpZ25hdHVyZWppbnN0YW5jZUlEeCx4bXA6aWlkOmQ4ZWM1ZGNhLWUyMGEtNDA0OS05ZDc5LThlMTNkNmY3N2Y1NHJjcmVhdGVkX2Fzc2VydGlvbnODomN1cmx4LXNlbGYjanVtYmY9YzJwYS5hc3NlcnRpb25zL2MycGEuaW5ncmVkaWVudC52M2RoYXNoWCDQum9LeJ2rNwmIuNW7NMA6cSy4FaBkpPBy9dd04nFaAaJjdXJseCpzZWxmI2p1bWJmPWMycGEuYXNzZXJ0aW9ucy9jMnBhLmFjdGlvbnMudjJkaGFzaFggUFK21KSPoPY+UQtqXfPQ0Uhj11NWn+bzGMgS7vQs8KKiY3VybHgpc2VsZiNqdW1iZj1jMnBhLmFzc2VydGlvbnMvYzJwYS5oYXNoLmRhdGFkaGFzaFggs3HpfWH92ssx9u58oIulRLlL9AxnIdkGdzCSshDXXlV0Y2xhaW1fZ2VuZXJhdG9yX2luZm+jZG5hbWVvQW50aHJvcGljIEZpbGVzZ3ZlcnNpb25lMS4wLjBrc3BlY1ZlcnNpb25lMi40LjAAABA4anVtYgAAAChqdW1kYzJjcwARABCAAACqADibcQNjMnBhLnNpZ25hdHVyZQAAABAIY2JvctKEWQISogEmGCFZAgowggIGMIIBjaADAgECAhRA5aAK7sI50L64g/oGQgU9Z1UTADAKBggqhkjOPQQDAzBJMRcwFQYDVQQKEw5BbnRocm9waWMsIFBCQzEuMCwGA1UEAxMlQW50aHJvcGljIENvbnRlbnQgQ3JlZGVudGlhbHMgUm9vdCBDQTAeFw0yNjA4MDcxODQzNTZaFw0yODA4MDYxOTQzNTZaMEQxFzAVBgNVBAoTDkFudGhyb3BpYywgUEJDMSkwJwYDVQQDEyBBbnRocm9waWMgQ2xhdWRlIENvbnRlbnQgU2lnbmluZzBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABJh6CmvLUBgFFNU0vUKlOVtE6djd17L5SuwX0LemFisBM3dkd/3cyjxFA3Qo5S46fX0/ihY0VZ7mfb9KF703t5OjWDBWMA4GA1UdDwEB/wQEAwIHgDAVBgNVHSUEDjAMBgorBgEEAYPoXgIBMAwGA1UdEwEB/wQCMAAwHwYDVR0jBBgwFoAUzlHiBIFOZFsj+OPEz5o+nMHXXMIwCgYIKoZIzj0EAwMDZwAwZAIwMXMdFJ4BetLLVY7ORuE9noqbbAZOZn/aArXyTwFAZfKrPzxF2vPoJNf1+UCdg1XGAjBwX1zd9WGqYkqmL5SFqw1QySjr1zJfpJM9+1rdDwSPLMOPOjKuiXjoU/pUUeG9RwmhY3BhZFkNngAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPZYQBCwn7AnnRE7tulFRSxYLHz+eJzhvm2lWtIoV18QL7k4HkivhzfkDcW6rJ1naBoQVNXugJguT2yCD7yrGlhsi9k=</c2pa:manifest></metadata>  </g>
+  <text x="30" y="1408" font-size="13.5" fill="#475569"><tspan font-weight="700" fill="#0f172a">Also:</tspan>  Superset keeps chart data, metadata and filters in Redis · with <tspan font-family="Consolas, monospace">-Asincrono</tspan> the Celery worker runs SQL Lab queries in the background · <tspan font-family="Consolas, monospace">prove.ps1</tspan> runs the automated tests inside the Superset pod.</text>
 </svg>
