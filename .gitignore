@@ -5,3 +5,6 @@ __pycache__/
 *.key
 chiavi.txt
 .vscode/
+
+# Report delle prove automatiche (scripts/prove.ps1)
+prove-risultati/

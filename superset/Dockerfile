@@ -7,6 +7,9 @@ USER root
 
 # Driver Postgres e Trino (l'immagine ufficiale "lean" non li include), come da documentazione Superset
 RUN . /app/.venv/bin/activate && uv pip install --no-cache psycopg2-binary "trino>=0.330"
+# Cache Redis e worker Celery usano i pacchetti gia' presenti nell'immagine, nelle versioni
+# compatibili tra loro scelte da Superset: qui si controlla solo che ci siano.
+RUN . /app/.venv/bin/activate && python -c "import redis, celery, kombu, cachelib"
 
 # Configurazione ed estensione: /app/pythonpath e' gia' nel PYTHONPATH dell'immagine
 COPY --chown=superset:superset superset_config.py /app/pythonpath/superset_config.py

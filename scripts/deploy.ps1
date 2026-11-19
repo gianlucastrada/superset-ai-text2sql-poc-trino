@@ -15,6 +15,11 @@
 .PARAMETER Forward
   Alla fine avvia il port-forward su http://localhost:8088
 
+.PARAMETER Asincrono
+  Avvia anche il worker Celery (k8s\50-superset-worker.yaml, circa 1 GB di memoria) e attiva
+  l'esecuzione asincrona delle query in SQL Lab. Redis parte sempre (cache di Superset).
+  Senza -Asincrono il worker viene rimosso se c'era.
+
 .PARAMETER Config
   Cartella con la configurazione del database (default: config\vendite): database.env
   (impostazioni CHIAVE=valore), istruzioni.md (regole di business per il modello),
@@ -30,6 +35,7 @@
   .\scripts\deploy.ps1 -OllamaUrl http://host.docker.internal:11435
   .\scripts\deploy.ps1 -SenzaTrino
   .\scripts\deploy.ps1 -Config config\altro-database
+  .\scripts\deploy.ps1 -Asincrono
 #>
 [CmdletBinding()]
 param(
@@ -38,6 +44,7 @@ param(
   [switch]$SkipBuild,
   [switch]$Forward,
   [switch]$SenzaTrino,
+  [switch]$Asincrono,
   [string]$Config = "config\vendite"
 )
 
@@ -112,7 +119,10 @@ if ($conTrino -and $memGB -gt 0 -and $memGB -lt 6) {
   Write-Warning "Il cluster ha solo $memGB GB di memoria: Trino NON viene avviato (servono almeno 6 GB). Aumenta la memoria di Docker Desktop/WSL2 e rilancia."
   $conTrino = $false
 }
-Write-Host "Memoria del cluster: $(if ($memGB -gt 0) { "$memGB GB" } else { 'non rilevata' }) - Trino: $(if ($conTrino) { 'si' } else { 'no' })"
+Write-Host "Memoria del cluster: $(if ($memGB -gt 0) { "$memGB GB" } else { 'non rilevata' }) - Trino: $(if ($conTrino) { 'si' } else { 'no' }) - worker Celery: $(if ($Asincrono) { 'si' } else { 'no' })"
+if ($Asincrono -and $memGB -gt 0 -and $memGB -lt 7) {
+  Write-Warning "Il worker Celery richiede circa 1 GB in piu' (cluster: $memGB GB). Se i pod restano in attesa, aumenta la memoria di Docker Desktop/WSL2."
+}
 
 # 1. Immagine Superset
 if (-not $SkipBuild) {
@@ -151,7 +161,9 @@ if ($conTrino) {
 }
 $cfgArgs = @("create", "configmap", "superset-ai-config", "-n", $Ns,
   "--from-literal=OLLAMA_URL=$OllamaUrl", "--from-literal=OLLAMA_MODEL=$Model",
-  "--from-literal=AI_TRINO_URI=$trinoAi", "--from-literal=AI_TRINO_SUPERSET_URI=$trinoSuperset")
+  "--from-literal=AI_TRINO_URI=$trinoAi", "--from-literal=AI_TRINO_SUPERSET_URI=$trinoSuperset",
+  "--from-literal=REDIS_HOST=redis", "--from-literal=REDIS_PORT=6379",
+  "--from-literal=SUPERSET_ASINCRONO=$(if ($Asincrono) { 'true' } else { 'false' })")
 # Configurazione del database: impostazioni, regole di business ed esempi (nessuno e' obbligatorio)
 $cfgDir = if ([System.IO.Path]::IsPathRooted($Config)) { $Config } else { Join-Path $Root $Config }
 if (-not (Test-Path $cfgDir)) { throw "Cartella di configurazione non trovata: $cfgDir" }
@@ -178,6 +190,11 @@ Apply-Yaml $cfgArgs
 Write-Host "`n==> Postgres"
 Invoke-Native kubectl @("apply", "-f", (Join-Path $Root "k8s\10-postgres.yaml"))
 Invoke-Native kubectl @("rollout", "status", "deployment/postgres", "-n", $Ns, "--timeout=300s")
+
+# 5b. Redis (cache di Superset e coda del worker Celery)
+Write-Host "`n==> Redis"
+Invoke-Native kubectl @("apply", "-f", (Join-Path $Root "k8s\40-redis.yaml"))
+Invoke-Native kubectl @("rollout", "status", "deployment/redis", "-n", $Ns, "--timeout=180s")
 
 # 6. Trino (facoltativo)
 if ($conTrino) {
@@ -208,6 +225,20 @@ Write-Host "Attendo Superset (il primo avvio con inizializzazione puo' richieder
 & kubectl rollout status deployment/superset -n $Ns --timeout=900s
 if ($LASTEXITCODE -ne 0) {
   Write-Warning "Superset non e' ancora pronto. Controlla: kubectl get pods -n $Ns ; kubectl logs -n $Ns deploy/superset -c init"
+}
+
+# 8. Worker Celery (facoltativo)
+if ($Asincrono) {
+  Write-Host "`n==> Worker Celery (query asincrone di SQL Lab)"
+  $workerEsisteva = Test-Kube @("get", "deployment/superset-worker", "-n", $Ns)
+  Invoke-Native kubectl @("apply", "-f", (Join-Path $Root "k8s\50-superset-worker.yaml"))
+  if ($workerEsisteva) { Invoke-Native kubectl @("rollout", "restart", "deployment/superset-worker", "-n", $Ns) }
+  & kubectl rollout status deployment/superset-worker -n $Ns --timeout=300s
+  if ($LASTEXITCODE -ne 0) {
+    Write-Warning "Il worker non e' ancora pronto. Controlla: kubectl logs -n $Ns deploy/superset-worker"
+  }
+} else {
+  Test-Kube @("delete", "-f", (Join-Path $Root "k8s\50-superset-worker.yaml"), "--ignore-not-found") | Out-Null
 }
 
 Write-Host ""

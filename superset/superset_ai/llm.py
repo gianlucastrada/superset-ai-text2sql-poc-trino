@@ -8,7 +8,7 @@ from typing import Any
 
 import requests
 
-from . import settings
+from . import dialetti, settings
 
 
 class ErroreLLM(RuntimeError):
@@ -45,38 +45,9 @@ _SCHEMA_DASHBOARD = {
     "required": ["titolo", "grafici"],
 }
 
-# Regole che cambiano con il dialetto SQL del motore scelto
-_DIALETTI: dict[str, dict[str, str]] = {
-    "postgres": {
-        "nome": "PostgreSQL",
-        "regole": """- Dialetto PostgreSQL.
-- Arrotonda importi e medie con ROUND(espressione::numeric, 2).
-- Per andamenti nel tempo raggruppa per mese con date_trunc('month', <data>)::date AS mese e ordina per mese.
-- Le date costanti si scrivono DATE 'aaaa-mm-gg'.""",
-        "mese": "date_trunc('month', <colonna_data>)::date AS mese",
-        "media": "SELECT ROUND(AVG(totale)::numeric, 2) AS media_per_entita FROM (SELECT <id_entita>, SUM(<valore>) AS totale FROM <tabella> GROUP BY <id_entita>) t",
-        "media_mese": "SELECT ROUND(AVG(totale)::numeric, 2) AS media_mensile FROM (SELECT date_trunc('month', <colonna_data>) AS mese, SUM(<valore>) AS totale FROM <tabella> GROUP BY 1) t",
-    },
-    "trino": {
-        "nome": "Trino",
-        "regole": """- Dialetto Trino (NON PostgreSQL). Le tabelle si indicano come <schema>.<nome> (con lo schema indicato nello SCHEMA DEL DATABASE) oppure solo <nome>.
-- Niente cast con '::': usa sempre CAST(espressione AS tipo).
-- Le date costanti si scrivono SEMPRE DATE 'aaaa-mm-gg': una colonna date non si confronta con una stringa.
-- Niente ILIKE: per confronti senza maiuscole usa lower(colonna) LIKE lower('%testo%').
-- Intervalli: INTERVAL '3' MONTH (numero tra apici, unita' fuori), oppure date_add('month', -3, data).
-- In Trino la divisione tra interi e' intera: per percentuali e rapporti usa 100.0 * ... oppure CAST(... AS DOUBLE).
-- Arrotonda importi e medie con ROUND(espressione, 2).
-- Per andamenti nel tempo raggruppa per mese con CAST(date_trunc('month', <data>) AS DATE) AS mese e ordina per mese.
-- Gli identificatori vanno tra doppi apici solo se servono; le stringhe tra apici singoli.""",
-        "mese": "CAST(date_trunc('month', <colonna_data>) AS DATE) AS mese",
-        "media": "SELECT ROUND(AVG(totale), 2) AS media_per_entita FROM (SELECT <id_entita>, SUM(<valore>) AS totale FROM <tabella> GROUP BY <id_entita>) t",
-        "media_mese": "SELECT ROUND(AVG(totale), 2) AS media_mensile FROM (SELECT date_trunc('month', <colonna_data>) AS mese, SUM(<valore>) AS totale FROM <tabella> GROUP BY 1) t",
-    },
-}
-
-
 def _d(dialetto: str) -> dict[str, str]:
-    return _DIALETTI.get(dialetto, _DIALETTI["postgres"])
+    """Regole ed esempi del dialetto del motore (vedi dialetti.py)."""
+    return dialetti.esempi(dialetto)
 
 
 def esempio_mese(dialetto: str) -> str:
@@ -94,12 +65,12 @@ def _regole_sql(dialetto: str) -> str:
 - Usa la colonna il cui nome o commento corrisponde alla parola usata nella domanda, e non dare a una colonna l'alias di un'altra: l'alias deve descrivere il contenuto reale.
 - Rispetta le indicazioni scritte nei commenti dello schema (ad esempio quali righe escludere da un totale).
 - Alias delle colonne calcolate in minuscolo snake_case, senza spazi ne' accenti (es. totale_mensile).
-- Per classifiche usa ORDER BY ... DESC con LIMIT (10 se non indicato).
+- Per classifiche usa ORDER BY ... DESC con il limite di righe del dialetto (10 se non indicato).
 - I periodi relativi ("ultimo mese", "ultimo trimestre", "quest'anno") vanno calcolati rispetto all'ULTIMA data presente nei dati (indicata nello schema), non alla data di oggi.
-- Per "ultimo mese", "ultimo trimestre", "ultimi 3 mesi", "ultimo semestre", "ultimo anno", "quest'anno" usa le date gia' calcolate nella sezione PERIODI DI RIFERIMENTO in fondo allo schema, scritte come costanti DATE 'aaaa-mm-gg'. NON ricalcolarle con date_trunc, MAX() o CURRENT_DATE. I trimestri solari si usano solo se l'utente li nomina esplicitamente (es. "Q3", "terzo trimestre", "trimestre solare").
+- Per "ultimo mese", "ultimo trimestre", "ultimi 3 mesi", "ultimo semestre", "ultimo anno", "quest'anno" usa le date gia' calcolate nella sezione PERIODI DI RIFERIMENTO in fondo allo schema, scritte come costanti {d["data"]}. NON ricalcolarle con date_trunc, MAX() o CURRENT_DATE. I trimestri solari si usano solo se l'utente li nomina esplicitamente (es. "Q3", "terzo trimestre", "trimestre solare").
 - Nella spiegazione indica sempre le date esatte del periodo considerato.
 - Conteggi di entita' (quanti clienti, quanti ordini, quanti prodotti...): usa la tabella o vista con UNA riga per entita', se esiste; altrimenti COUNT(DISTINCT <id_entita>). Mai COUNT(*) su una tabella con piu' righe per la stessa entita' (es. righe di dettaglio): conterebbe le righe, non le entita'.
-- Percentuale di righe in un certo stato: 100.0 * COUNT(*) FILTER (WHERE <condizione>) / COUNT(*), su una tabella o vista che contiene TUTTI i casi (anche quelli che altre viste escludono).
+- Percentuale di righe in un certo stato: 100.0 * SUM(CASE WHEN <condizione> THEN 1 ELSE 0 END) / COUNT(*), su una tabella o vista che contiene TUTTI i casi (anche quelli che altre viste escludono).
 - Se la domanda chiede un unico valore (totale, conteggio, media, percentuale) la query deve restituire UNA sola riga.
 - Medie "per <entita'>" (per ordine, per cliente, per mese...) richiedono DUE livelli: prima il totale per entita' in una sottoquery, poi la media dei totali. Esempio:
   {d["media"]}

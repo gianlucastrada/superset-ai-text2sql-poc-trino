@@ -12,6 +12,10 @@ A customised **Apache Superset 6.1** that turns questions written in natural lan
 - **Text-to-SQL in SQL Lab**: a floating panel that generates a query and either opens it in a new SQL Lab tab or inserts it in the current editor.
 - **Dashboards are updated, not duplicated**: asking again for the same dashboard updates the existing one and reuses datasets and charts that already exist. A "clean up" button removes the AI-created charts and datasets that no dashboard uses.
 - **Two SQL engines**: PostgreSQL directly, or **Trino** in front of the same PostgreSQL. With Trino the model writes SQL in Trino's dialect; you pick the engine on the AI page and in the SQL Lab panel.
+- **Any SQL engine Superset can connect to**: the schema is read with SQLAlchemy's Inspector and the SQL dialect is detected from the connection URL (PostgreSQL, Oracle, SQL Server, MySQL, Hive, Spark, Trino...), with dialect-specific rules for the model and checks for constructs the engine does not accept.
+- **Request log with user feedback**: every question, dashboard and re-run query is logged (user, engine, SQL, outcome, rows, time) with a 👍 / 👎 vote; the AI page shows the log and exports it as CSV.
+- **Automated tests**: `scripts/prove.ps1` asks the real model the questions in `config/vendite/prove.yaml`, checks the results against expected values and writes a report that compares each run with the previous one.
+- **Redis cache** for Superset (chart data, metadata, filters) and an optional **Celery worker** for asynchronous SQL Lab queries (`deploy.ps1 -Asincrono`).
 - **Light/dark theme** support on the AI page.
 
 ## How it works
@@ -36,6 +40,7 @@ The extension is a Flask blueprint plus a few static JavaScript files loaded thr
 | BI | Apache Superset 6.1.0 (official image + `superset_ai` extension) |
 | Database | PostgreSQL 16 (sample data + Superset metadata) |
 | Query engine (optional) | Trino 482, `postgresql` catalog over the same database |
+| Cache and queue | Redis 7 (always); Celery worker (optional) |
 | Model | Qwen3.6, 35B parameters (about 22 GB), served by Ollama |
 | Model host | NVIDIA DGX Spark (121 GB unified memory) on the company network |
 | Runtime | Docker Desktop Kubernetes, PowerShell deploy scripts |
@@ -76,7 +81,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 .\scripts\forward.ps1                                              # then open http://localhost:8088 (user: admin)
 ```
 
-Useful scripts: `password.ps1` (show the admin password), `aggiorna-db.ps1` (re-apply the analysis views), `trino.ps1 stato|spegni|accendi` (check, stop or start Trino), `destroy.ps1 [-Purge]` (stop, or delete everything including data).
+Useful scripts: `prove.ps1` (automated tests with a report in `prove-risultati/`), `deploy.ps1 -Asincrono` (also start the Celery worker), `password.ps1` (show the admin password), `aggiorna-db.ps1` (re-apply the analysis views), `trino.ps1 stato|spegni|accendi` (check, stop or start Trino), `destroy.ps1 [-Purge]` (stop, or delete everything including data).
 
 `deploy.ps1` starts Trino only when the cluster has at least 6 GB of memory; `-SenzaTrino` skips it (and removes it if present). The Trino pod is capped at 3 GB.
 
@@ -84,18 +89,18 @@ Useful scripts: `password.ps1` (show the admin password), `aggiorna-db.ps1` (re-
 
 - The `postgresql` catalog connects as the read-only `ai_reader` user, so Trino cannot change data either. Trino has no authentication in this POC and is reachable only inside the cluster.
 - The analysis views compute `importo` and `margine` as `numeric` without precision. Trino's PostgreSQL connector **hides** such columns by default, so the catalog sets `decimal-mapping=allow_overflow` with scale 2. The connection check on the AI page warns if they are missing.
-- The schema description sent to the model is still read from PostgreSQL's catalog (with Trino type names). That works because Trino fronts a single PostgreSQL; federating several sources would require reading it from Trino.
+- With `AI_METADATI_DA=diretto` (set in `config/vendite`) the schema description is read from PostgreSQL, with Trino type names, because Trino shows PostgreSQL views as tables and may not expose comments and keys. Leave it empty to read the schema from Trino itself, for example when Trino federates several sources.
 
 ## Repository layout
 
 ```
 docs/architecture.png        architecture diagram (source: architecture.svg)
-k8s/                         namespace, Postgres, Superset and Trino manifests
+k8s/                         namespace, Postgres, Superset, Trino, Redis and Celery worker manifests
 postgres/init/               schema, synthetic data (400 customers, 60 products, ~5,300 orders), views, permissions
 superset/                    Dockerfile, superset_config.py, init script
-superset/superset_ai/        the extension: views.py, llm.py, dati.py, sqlguard.py, templates, static JS
+superset/superset_ai/        the extension: views.py, llm.py, dati.py, dialetti.py, sqlguard.py, registro.py, prove.py, templates, static JS
 scripts/                     PowerShell deploy / forward / test / Trino scripts
-config/vendite/              database-specific settings, business rules and UI examples for the sample database
+config/vendite/              database-specific settings, business rules, UI examples and automated tests for the sample database
 PROVE.md                     test plan with expected values (Italian)
 README.it.md                 full documentation in Italian
 ```
@@ -105,7 +110,8 @@ README.it.md                 full documentation in Italian
 - The extension was tested end to end on a real Superset 6.1.0 and PostgreSQL 16 with a simulated Ollama, and then by hand against the real Qwen model. [PROVE.md](PROVE.md) lists the questions and the expected numbers.
 - The Trino engine was tested with a **simulated Trino** (it speaks Trino's HTTP protocol and runs the queries on PostgreSQL), the real Trino Python client and the real Superset. A real Trino deployment has not been run yet: PROVE.md section 10 covers it.
 - The generated SQL is not guaranteed to be right. The checks and the correction loop reduce errors but do not remove them, so always review important numbers.
-- One database for the AI, no native dashboard filters, synchronous SQL Lab with an in-memory cache (single user).
+- On 19/11/2026 the engine-independent layer, request log, Redis cache, Celery async SQL Lab and the test runner were verified on Superset 6.1.0 with the exact library versions of the official image (SQLAlchemy 1.4.54, sqlglot 28.10, celery 5.5.2). Schema reading ran on PostgreSQL and SQLite; Oracle, SQL Server, MySQL, Hive, Spark and BigQuery were verified only for SQL translation, not against real servers.
+- One database for the AI at a time and one database user for all AI queries; no native dashboard filters.
 - The SQL Lab panel is added with JavaScript on top of Superset's UI, so a major Superset upgrade may require adjusting it. Dashboards use the official REST API.
 - Prompts, schema comments and sample data are in **Italian**.
 

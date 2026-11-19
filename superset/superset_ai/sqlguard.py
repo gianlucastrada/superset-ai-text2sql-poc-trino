@@ -1,8 +1,8 @@
 """Controlli sulla SQL generata dal modello: una sola istruzione, solo lettura.
 
-E' il primo livello di protezione. Il secondo (quello che conta davvero) e' l'utente
-Postgres "ai_reader", che ha solo permessi SELECT: lo usa anche il catalogo postgresql di Trino.
-Per Trino si segnalano anche i costrutti PostgreSQL che non esistono nel suo dialetto.
+E' il primo livello di protezione. Il secondo (quello che conta davvero) e' l'utente del
+database, che deve avere solo permessi di lettura (nella POC "ai_reader", usato anche da Trino).
+Si segnalano anche i costrutti di altri dialetti che il motore non accetta (vedi dialetti.py).
 """
 
 import re
@@ -10,6 +10,8 @@ from typing import Callable
 
 import sqlglot
 from sqlglot import exp
+
+from . import dialetti
 
 
 class SqlNonValida(ValueError):
@@ -148,7 +150,7 @@ def controlla_logica(
     quasi sempre il modello voleva un'aggregazione in due passaggi.
     """
     try:
-        radice = sqlglot.parse_one(sql, read=dialetto)
+        radice = sqlglot.parse_one(sql, read=dialetto or None)
     except Exception:  # noqa: BLE001
         return None
     if not isinstance(radice, exp.Select):
@@ -159,15 +161,15 @@ def controlla_logica(
     if not gruppo or not gruppo.expressions:
         return None
     uscite_nomi = {p.alias_or_name.lower() for p in radice.expressions}
-    uscite_expr = {p.unalias().sql(dialect=dialetto).lower() for p in radice.expressions}
+    uscite_expr = {p.unalias().sql(dialect=dialetto or None).lower() for p in radice.expressions}
     mancanti = []
     for g in gruppo.expressions:
         if isinstance(g, exp.Literal):  # GROUP BY 1, 2 ...: si riferisce a colonne restituite
             continue
-        testo = g.sql(dialect=dialetto).lower()
+        testo = g.sql(dialect=dialetto or None).lower()
         nome = g.alias_or_name.lower() if isinstance(g, exp.Column) else testo
         if testo not in uscite_expr and nome not in uscite_nomi:
-            mancanti.append(g.sql(dialect=dialetto))
+            mancanti.append(g.sql(dialect=dialetto or None))
     if mancanti and len(mancanti) == len(gruppo.expressions):
         colonne = ", ".join(mancanti)
         return (
@@ -180,47 +182,16 @@ def controlla_logica(
     return None
 
 
-_STRINGHE = re.compile(r"'(?:[^']|'')*'")
-_DATA_NUDA = re.compile(r"(?<![A-Za-z_])'\d{4}-\d{2}-\d{2}'")
-# Una data tra apici e' un errore solo se e' confrontata direttamente (>=, =, BETWEEN ... AND ...):
-# DATE '...', TIMESTAMP '...' e CAST('...' AS DATE) sono validi in Trino.
-_CONFRONTO_PRIMA = re.compile(r"(?i)(<=|>=|<>|!=|=|<|>|\bbetween|\band)\s*$")
-_CONFRONTO_DOPO = re.compile(r"^\s*(<=|>=|<>|!=|=|<|>)")
-
-
-def _errori_trino(sql: str) -> str | None:
-    """Costrutti PostgreSQL che Trino non accetta: si segnalano al modello con la correzione
-    giusta prima di eseguire (l'errore di Trino sarebbe meno chiaro)."""
-    senza_stringhe = _STRINGHE.sub("''", sql)
-    problemi = []
-    if "::" in senza_stringhe:
-        problemi.append("il cast con '::' non esiste in Trino: usa CAST(espressione AS tipo)")
-    if re.search(r"(?i)\bilike\b", senza_stringhe):
-        problemi.append("ILIKE non esiste in Trino: usa lower(colonna) LIKE lower('%testo%')")
-    if re.search(r"(?i)\binterval\s*'\s*\d+\s+[a-z]+", sql):
-        problemi.append("in Trino gli intervalli si scrivono INTERVAL '3' MONTH (numero tra apici, unita' fuori)")
-    for m in _DATA_NUDA.finditer(sql):
-        if _CONFRONTO_PRIMA.search(sql[: m.start()]) or _CONFRONTO_DOPO.match(sql[m.end():]):
-            problemi.append(
-                f"la data {m.group(0)} e' una stringa: in Trino una colonna date si confronta solo "
-                f"con un valore date, scrivi DATE {m.group(0)}"
-            )
-            break
-    if not problemi:
-        return None
-    return "La query usa sintassi PostgreSQL non valida in Trino: " + "; ".join(problemi) + "."
-
-
 def valida(sql: str, dialetto: str = "postgres") -> str:
     """Restituisce la SQL pulita, oppure solleva SqlNonValida."""
     sql = pulisci(sql)
     if not sql:
         raise SqlNonValida("La query e' vuota.")
-    if dialetto == "trino" and (errore := _errori_trino(sql)):
+    if errore := dialetti.errori_sintassi(sql, dialetto):
         raise SqlNonValida(errore)
 
     try:
-        istruzioni = [s for s in sqlglot.parse(sql, read=dialetto) if s is not None]
+        istruzioni = [s for s in sqlglot.parse(sql, read=dialetto or None) if s is not None]
     except Exception:  # noqa: BLE001 - sqlglot non riconosce tutta la sintassi del dialetto
         # Ripiego prudente: accetto solo testo che inizia con SELECT/WITH e senza ';'.
         # Le scritture sarebbero comunque rifiutate dai permessi dell'utente ai_reader.

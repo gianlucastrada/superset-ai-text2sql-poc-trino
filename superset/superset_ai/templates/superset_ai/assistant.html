@@ -56,6 +56,10 @@
     ol#log { margin:10px 0 0; padding-left:20px; color:var(--muted); }
     ol#log li { white-space:pre-wrap; }
     ol#log li.err { color:var(--err); }
+    .voto { margin-top:8px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; color:var(--muted); }
+    .voto button { padding:4px 10px; font-size:13px; }
+    td.esito-ok { color:var(--ok); } td.esito-avviso { color:#b26a00; } td.esito-errore { color:var(--err); }
+    td.lungo { white-space:normal; min-width:260px; max-width:420px; }
     .nascosto { display:none; }
       label.motore { font-size:13px; color:var(--muted); display:inline-flex; align-items:center; gap:6px; }
     label.motore select { background:var(--campo); color:var(--text); border:1px solid var(--line); border-radius:6px; padding:4px 6px; font:inherit; }
@@ -88,6 +92,11 @@
         <span class="sotto" id="tempoSql"></span>
       </div>
       <div class="msg" id="msgSql"></div>
+      <div class="voto nascosto" id="votoSql">La risposta e' corretta?
+        <button type="button" class="sec" data-voto="1">&#128077; S&igrave;</button>
+        <button type="button" class="sec" data-voto="-1">&#128078; No</button>
+        <span class="esito-voto"></span>
+      </div>
 
       <div id="bloccoSql" class="nascosto">
         <p class="sotto" style="margin-top:14px">SQL generata (puoi modificarla e rieseguirla):</p>
@@ -116,7 +125,23 @@
         <span class="sotto" id="tempoDash"></span>
       </div>
       <div class="msg" id="msgDash"></div>
+      <div class="voto nascosto" id="votoDash">La dashboard risponde alla richiesta?
+        <button type="button" class="sec" data-voto="1">&#128077; S&igrave;</button>
+        <button type="button" class="sec" data-voto="-1">&#128078; No</button>
+        <span class="esito-voto"></span>
+      </div>
       <ol id="log"></ol>
+    </section>
+
+    <section>
+      <h2>Registro delle richieste</h2>
+      <p class="sotto">Domande e dashboard chieste all'AI, con esito, tempi e voti. Un amministratore vede le richieste di tutti gli utenti.</p>
+      <div class="riga">
+        <button id="btnRegistro" type="button" class="sec">Mostra il registro</button>
+        <a href="/ai/api/registro?formato=csv&amp;limite=5000">Scarica CSV</a>
+        <span class="sotto" id="riepilogoRegistro"></span>
+      </div>
+      <div class="tab nascosto" id="tabRegistro"></div>
     </section>
   </main>
 

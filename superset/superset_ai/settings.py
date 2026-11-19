@@ -28,10 +28,19 @@ OLLAMA_NUM_CTX = _int("OLLAMA_NUM_CTX", 0)
 # qwen3.6 e' un modello "thinking": il ragionamento esteso rallenta molto le risposte.
 OLLAMA_THINK = os.environ.get("OLLAMA_THINK", "false").lower() in ("1", "true", "yes")
 
-# Database dei dati (utente in sola lettura) e nome con cui e' registrato in Superset
+# Database dei dati: qualsiasi indirizzo SQLAlchemy (postgresql://, oracle://, mssql://,
+# mysql://, hive://, trino://...), con un utente in SOLA LETTURA. Il nome e' quello con cui
+# e' registrato in Superset.
 AI_DATA_URI = os.environ.get("AI_DATA_URI", "")
 AI_DATABASE_NAME = os.environ.get("AI_DATABASE_NAME", "Vendite (POC)")
-AI_SCHEMA = os.environ.get("AI_SCHEMA", "public")
+# Schema da descrivere al modello. Vuoto = lo schema predefinito della connessione.
+AI_SCHEMA = os.environ.get("AI_SCHEMA", "").strip()
+# Dialetto SQL della connessione diretta, se quello ricavato dall'indirizzo non va bene
+# (nomi di sqlglot: postgres, oracle, tsql, mysql, hive, spark, trino...). Vuoto = automatico.
+AI_DIALETTO = os.environ.get("AI_DIALETTO", "").strip().lower()
+# Da dove leggere lo schema quando si interroga con Trino: "" = da Trino stesso; "diretto" =
+# dalla connessione diretta (Trino a volte non mostra commenti, viste o chiavi della sorgente).
+AI_METADATI_DA = os.environ.get("AI_METADATI_DA", "").strip().lower()
 
 # --- Adattamento al database ---------------------------------------------------------------
 # Il codice non conosce nessuna tabella: cio' che riguarda un database sta nei commenti del
@@ -54,6 +63,11 @@ AI_ISTRUZIONI = os.environ.get("AI_ISTRUZIONI", "").strip()
 # o unique (es. nelle viste) si verifica sui dati, con questo tempo massimo in millisecondi.
 # 0 = solo le chiavi del catalogo, nessuna query sui dati (per database molto grandi).
 AI_UNICITA_TIMEOUT_MS = _int("AI_UNICITA_TIMEOUT_MS", 3000)
+# Valori tipici delle colonne di testo e intervalli delle date nello schema descritto al modello.
+# Su tabelle enormi si puo' spegnere (false) e indicare AI_COLONNA_DATA.
+AI_PROFILO_DATI = _bool("AI_PROFILO_DATI", True)
+# Righe lette al massimo da ogni controllo sui dati (valori tipici, unicita'): limita il costo.
+AI_CAMPIONE_RIGHE = _int("AI_CAMPIONE_RIGHE", 100000)
 # Esempi mostrati nella pagina AI (una riga per esempio; config/<database>/esempi-*.txt).
 # Vuoti = nessun pulsante di esempio.
 AI_ESEMPI_DOMANDE = [r.strip() for r in os.environ.get("AI_ESEMPI_DOMANDE", "").splitlines() if r.strip()]

@@ -6,6 +6,7 @@ import hashlib
 import logging
 import os
 import re
+import time
 from functools import lru_cache, wraps
 from typing import Any, Callable
 
@@ -13,7 +14,7 @@ from flask import Blueprint, jsonify, redirect, render_template, request, url_fo
 from flask_login import current_user
 from jinja2 import ChoiceLoader, FileSystemLoader
 
-from . import dati, llm, settings
+from . import dati, dialetti, llm, registro, settings
 from .sqlguard import SqlNonValida, controlla_logica, valida
 
 logger = logging.getLogger(__name__)
@@ -46,9 +47,49 @@ def _richiede_login_api(f: Callable) -> Callable:
     return wrapper
 
 
-_RE_COLONNA = re.compile(r'column "(?:[^".]+\.)?([^".]+)" does not exist')
-# Trino: "line 3:5: Column 'importo' cannot be resolved"
-_RE_COLONNA_TRINO = re.compile(r"Column '(?:[^'.]+\.)?([^'.]+)' cannot be resolved")
+def _utente() -> str | None:
+    try:
+        return current_user.username
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _admin() -> bool:
+    try:
+        return any(r.name == "Admin" for r in current_user.roles)
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _schema(motore: str) -> str:
+    try:
+        return dati.schema_effettivo(motore)
+    except Exception:  # noqa: BLE001 - database non raggiungibile: lo dira' la query
+        return settings.AI_SCHEMA
+
+
+def _registra(tipo: str, motore: str, inizio: float, **campi: Any) -> int | None:
+    """Scrive la richiesta nel registro: non fa mai fallire la risposta."""
+    return registro.scrivi(
+        tipo=tipo,
+        motore=motore,
+        modello=settings.OLLAMA_MODEL,
+        utente=_utente(),
+        durata_ms=int((time.monotonic() - inizio) * 1000),
+        **campi,
+    )
+
+
+# Colonna inesistente, nei messaggi dei vari motori (il nome e' nel primo gruppo)
+_RE_COLONNE = [
+    re.compile(r'column "(?:[^".]+\.)?([^".]+)" does not exist'),  # PostgreSQL
+    re.compile(r"Column '(?:[^'.]+\.)?([^'.]+)' cannot be resolved"),  # Trino / Presto
+    re.compile(r"Unknown column '(?:[^'.]+\.)?([^'.]+)'"),  # MySQL
+    re.compile(r'ORA-00904: "?(?:[^".]+"?\.)?"?([^".]+)"?: invalid identifier'),  # Oracle
+    re.compile(r"Invalid column name '([^']+)'"),  # SQL Server
+    re.compile(r"Invalid column reference '(?:[^'.]+\.)?([^'.]+)'"),  # Hive
+    re.compile(r"(?:no such column|cannot resolve) [`'\"]?(?:[^`'\".]+\.)?([^`'\".\s]+)"),  # SQLite, Spark
+]
 # Trino: il messaggio utile sta in message="..." dentro TrinoUserError(...)
 _RE_MSG_TRINO = re.compile(r'message="((?:[^"\\]|\\.)*)"')
 
@@ -64,7 +105,7 @@ def _errore_db(ex: Exception) -> str:
     testo = " ".join(righe[:3]) or type(ex).__name__
     if m := _RE_MSG_TRINO.search(testo):
         testo = "Errore di Trino: " + m.group(1)
-    if m := (_RE_COLONNA.search(testo) or _RE_COLONNA_TRINO.search(testo)):
+    if m := next((m for r in _RE_COLONNE if (m := r.search(testo))), None):
         colonna = m.group(1)
         try:
             dove = dati.dove_si_trova(colonna)
@@ -100,7 +141,7 @@ def _id_database(nome: str | None = None) -> int | None:
 
 
 def _genera_ed_esegui(
-    domanda: str, esegui: bool, motore: str = "postgres", tentativi: int = 2
+    domanda: str, esegui: bool, motore: str = "diretto", tentativi: int = 2
 ) -> dict[str, Any]:
     """Domanda -> SQL validata (-> risultati). Se il database da errore, chiede una correzione."""
     dial = dati.dialetto(motore)
@@ -116,7 +157,7 @@ def _genera_ed_esegui(
         else:
             # Errori logici tipici (es. GROUP BY su colonna non restituita): si chiede una correzione;
             # all'ultimo tentativo la query viene eseguita comunque, con un avviso.
-            avviso = controlla_logica(sql, dial, dati.colonna_unica)
+            avviso = controlla_logica(sql, dial, lambda t, c: dati.colonna_unica(t, c, motore))
             if avviso and not ultimo:
                 ultimo_errore = avviso
             else:
@@ -178,7 +219,7 @@ def _problema_forma(tipo: str, colonne: list[str], tipi: list[str], n: int) -> s
 
 
 def _verifica_grafico(
-    g: dict[str, Any], richiesta: str, schema: str, motore: str = "postgres"
+    g: dict[str, Any], richiesta: str, schema: str, motore: str = "diretto"
 ) -> dict[str, Any]:
     """Valida ed esegue la SQL di un grafico. Se la query fallisce o i dati non hanno la forma
     adatta al tipo di grafico, chiede al modello fino a 2 correzioni spiegando la forma richiesta.
@@ -194,7 +235,7 @@ def _verifica_grafico(
         ultimo = tentativo + 1 == tentativi
         try:
             sql = valida(sql, dial)
-            avviso = controlla_logica(sql, dial, dati.colonna_unica)
+            avviso = controlla_logica(sql, dial, lambda t, c: dati.colonna_unica(t, c, motore))
             if avviso and not ultimo:
                 raise SqlNonValida(avviso)
             ris = dati.esegui_query(sql, limite=1000, motore=motore)
@@ -287,7 +328,7 @@ def pagina_assistant():
         modello=settings.OLLAMA_MODEL,
         ollama_url=settings.OLLAMA_URL,
         nome_database=settings.AI_DATABASE_NAME,
-        motori=[(m, dati.MOTORI[m]["etichetta"]) for m in dati.motori_disponibili()],
+        motori=[(m, dati.etichetta(m)) for m in dati.motori_disponibili()],
         esempi_domande=settings.AI_ESEMPI_DOMANDE,
         esempi_dashboard=settings.AI_ESEMPI_DASHBOARD,
     )
@@ -299,17 +340,18 @@ def pagina_assistant():
 @_richiede_login_api
 def api_info():
     motore = _motore()
-    nome = dati.MOTORI[motore]["database"]
+    nome = dati.nome_database(motore)
     return jsonify(
         {
             "motore": motore,
             "dialetto": dati.dialetto(motore),
+            "dialetto_nome": dialetti.nome(dati.dialetto(motore)),
             "motori": [
-                {"chiave": m, "etichetta": dati.MOTORI[m]["etichetta"]} for m in dati.motori_disponibili()
+                {"chiave": m, "etichetta": dati.etichetta(m)} for m in dati.motori_disponibili()
             ],
             "database_id": _id_database(nome),
             "database_nome": nome,
-            "schema": settings.AI_SCHEMA,
+            "schema": _schema(motore),
             "modello": settings.OLLAMA_MODEL,
             "ollama_url": settings.OLLAMA_URL,
             "esempio": settings.AI_ESEMPI_DOMANDE[0] if settings.AI_ESEMPI_DOMANDE else "",
@@ -322,8 +364,8 @@ def api_info():
 def api_stato():
     risultato = llm.stato()
     try:
-        dati.esegui_query("SELECT 1 AS ok", limite=1)
-        risultato["database"] = "Database dei dati raggiungibile."
+        dati.verifica_connessione("diretto")
+        risultato["database"] = f"Database dei dati raggiungibile ({dati.etichetta('diretto')})."
     except Exception as ex:  # noqa: BLE001
         risultato["ok"] = False
         risultato["database"] = f"Database dei dati non raggiungibile: {ex}"
@@ -358,15 +400,28 @@ def api_sql():
     domanda = str(corpo.get("domanda") or "").strip()
     if not domanda:
         return _errore("Scrivi una domanda.")
+    motore = _motore(corpo)
+    inizio = time.monotonic()
     try:
-        risposta = _genera_ed_esegui(
-            domanda, esegui=bool(corpo.get("esegui", True)), motore=_motore(corpo)
-        )
+        risposta = _genera_ed_esegui(domanda, esegui=bool(corpo.get("esegui", True)), motore=motore)
     except llm.ErroreLLM as ex:
+        _registra("sql", motore, inizio, domanda=domanda, esito="errore", errore=str(ex))
         return _errore(str(ex), 502)
     except Exception as ex:  # noqa: BLE001
         logger.exception("Errore Text-to-SQL")
+        _registra("sql", motore, inizio, domanda=domanda, esito="errore", errore=str(ex))
         return _errore(f"Errore inatteso: {ex}", 500)
+    ris = risposta.get("risultato") or {}
+    risposta["registro_id"] = _registra(
+        "sql", motore, inizio,
+        domanda=domanda,
+        sql=risposta.get("sql"),
+        spiegazione=risposta.get("spiegazione"),
+        esito="errore" if risposta.get("errore_sql") else ("avviso" if risposta.get("avviso") else "ok"),
+        errore=risposta.get("errore_sql") or risposta.get("avviso"),
+        righe=len(ris.get("righe") or []) if ris else None,
+        tentativi=risposta.get("tentativi"),
+    )
     return jsonify(risposta)
 
 
@@ -375,14 +430,21 @@ def api_sql():
 def api_esegui():
     corpo = request.get_json(silent=True) or {}
     motore = _motore(corpo)
+    inizio = time.monotonic()
+    testo = str(corpo.get("sql") or "")
     try:
-        sql = valida(str(corpo.get("sql") or ""), dati.dialetto(motore))
+        sql = valida(testo, dati.dialetto(motore))
     except SqlNonValida as ex:
+        _registra("riesegui", motore, inizio, sql=testo, esito="errore", errore=str(ex))
         return _errore(str(ex))
     try:
-        return jsonify({"sql": sql, "motore": motore, "risultato": dati.esegui_query(sql, motore=motore)})
+        risultato = dati.esegui_query(sql, motore=motore)
     except Exception as ex:  # noqa: BLE001
-        return _errore(f"Errore del database: {_errore_db(ex)}")
+        errore = _errore_db(ex)
+        _registra("riesegui", motore, inizio, sql=sql, esito="errore", errore=errore)
+        return _errore(f"Errore del database: {errore}")
+    id_riga = _registra("riesegui", motore, inizio, sql=sql, esito="ok", righe=len(risultato["righe"]))
+    return jsonify({"sql": sql, "motore": motore, "risultato": risultato, "registro_id": id_riga})
 
 
 @ai_bp.route("/api/dashboard", methods=["POST"])
@@ -396,6 +458,7 @@ def api_dashboard():
     if not richiesta:
         return _errore("Descrivi la dashboard che vuoi.")
     motore = _motore(corpo)
+    inizio = time.monotonic()
     try:
         schema = dati.descrivi_schema(motore=motore)
         piano = llm.progetta_dashboard(richiesta, schema, dati.dialetto(motore))
@@ -405,27 +468,91 @@ def api_dashboard():
             if isinstance(g, dict)
         ]
     except llm.ErroreLLM as ex:
+        _registra("dashboard", motore, inizio, domanda=richiesta, esito="errore", errore=str(ex))
         return _errore(str(ex), 502)
     except Exception as ex:  # noqa: BLE001
         logger.exception("Errore progettazione dashboard")
+        _registra("dashboard", motore, inizio, domanda=richiesta, esito="errore", errore=str(ex))
         return _errore(f"Errore inatteso: {ex}", 500)
     validi = [g for g in grafici if not g.get("errore")]
     scartati = [g for g in grafici if g.get("errore")]
+    elenco_sql = "\n\n".join(f"-- {g['titolo']} ({g['tipo']})\n{g['sql']}" for g in grafici)
+    problemi = "; ".join(f"{g['titolo']}: {g['errore']}" for g in scartati)
+    id_riga = _registra(
+        "dashboard", motore, inizio,
+        domanda=richiesta,
+        sql=elenco_sql,
+        spiegazione=piano.get("titolo"),
+        esito="errore" if not validi else ("avviso" if scartati else "ok"),
+        errore=problemi or None,
+        righe=len(validi),
+    )
     if not validi:
-        return _errore(
-            "Nessun grafico valido. Errori: " + "; ".join(f"{g['titolo']}: {g['errore']}" for g in scartati)
-        )
+        return _errore("Nessun grafico valido. Errori: " + problemi)
     return jsonify(
         {
             "titolo": piano["titolo"],
             "grafici": validi,
             "scartati": scartati,
-            "database_id": _id_database(dati.MOTORI[motore]["database"]),
-            "database_nome": dati.MOTORI[motore]["database"],
+            "database_id": _id_database(dati.nome_database(motore)),
+            "database_nome": dati.nome_database(motore),
             "motore": motore,
-            "schema": settings.AI_SCHEMA,
+            "schema": _schema(motore),
+            "registro_id": id_riga,
         }
     )
+
+
+@ai_bp.route("/api/voto", methods=["POST"])
+@_richiede_login_api
+def api_voto():
+    """Voto dell'utente su una risposta: {"id": ..., "voto": 1 | -1, "nota": "..."}."""
+    corpo = request.get_json(silent=True) or {}
+    try:
+        id_riga, voto = int(corpo.get("id")), int(corpo.get("voto"))
+    except (TypeError, ValueError):
+        return _errore("Indica id e voto (1 oppure -1).")
+    try:
+        ok = registro.vota(id_riga, voto, str(corpo.get("nota") or "") or None, _utente(), _admin())
+    except Exception as ex:  # noqa: BLE001
+        return _errore(f"Registro non disponibile: {ex}", 500)
+    if not ok:
+        return _errore("Richiesta non trovata nel registro.", 404)
+    return jsonify({"ok": True})
+
+
+@ai_bp.route("/api/registro")
+@_richiede_login_api
+def api_registro():
+    """Ultime richieste all'AI (un amministratore vede quelle di tutti). ?formato=csv per il file."""
+    try:
+        limite = int(request.args.get("limite") or 100)
+    except ValueError:
+        limite = 100
+    utente = None if _admin() else _utente()
+    try:
+        righe = registro.elenco(limite, utente=utente, tipo=request.args.get("tipo") or None)
+        riepilogo = registro.riepilogo(utente)
+    except Exception as ex:  # noqa: BLE001
+        return _errore(f"Registro non disponibile: {ex}", 500)
+    if request.args.get("formato") == "csv":
+        import csv
+        import io
+
+        buffer = io.StringIO()
+        campi = [c.name for c in registro.TABELLA.columns]
+        scrittore = csv.DictWriter(buffer, fieldnames=campi, delimiter=";")
+        scrittore.writeheader()
+        scrittore.writerows(righe)
+        return (
+            "\ufeff" + buffer.getvalue(),
+            200,
+            {
+                "Content-Type": "text/csv; charset=utf-8",
+                "Content-Disposition": "attachment; filename=registro-ai.csv",
+            },
+        )
+    return jsonify({"righe": righe, "riepilogo": riepilogo, "tutti": utente is None})
 
 
 # --------------------------------------------------------------------------- aggancio a Superset

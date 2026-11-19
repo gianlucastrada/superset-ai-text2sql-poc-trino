@@ -14,6 +14,6 @@ if ($Purge) {
   if ($answer -ne "si") { Write-Host "Annullato."; return }
   & kubectl delete namespace superset-ai
 } else {
-  & kubectl delete deployment superset postgres trino -n superset-ai --ignore-not-found
+  & kubectl delete deployment superset superset-worker redis postgres trino -n superset-ai --ignore-not-found
   Write-Host "Pod fermati. Dati e password conservati (usa -Purge per cancellare tutto)."
 }

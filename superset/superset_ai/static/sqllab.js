@@ -11,7 +11,7 @@
   var info = null;
   // Motore condiviso con la pagina AI Assistant (stessa origine, stessa chiave)
   function motore() {
-    try { return localStorage.getItem('ai-motore') || 'postgres'; } catch (e) { return 'postgres'; }
+    try { return localStorage.getItem('ai-motore') || 'diretto'; } catch (e) { return 'diretto'; }
   }
   async function caricaInfo(forza) {
     if (!info || forza) info = await api('GET', '/ai/api/info?motore=' + encodeURIComponent(motore()));
@@ -183,7 +183,7 @@
   });
   function mostraInfo() {
     if (info.esempio) q('.sai-q').placeholder = 'Es. ' + info.esempio;
-    q('.sai-db').textContent = 'Database: ' + info.database_nome + ' (dialetto ' + info.dialetto + ') - modello ' +
+    q('.sai-db').textContent = 'Database: ' + info.database_nome + ' (dialetto ' + (info.dialetto_nome || info.dialetto) + ') - modello ' +
       info.modello + '. Descrivi la query in italiano.';
     var sel = q('.sai-mot');
     if ((info.motori || []).length > 1) {

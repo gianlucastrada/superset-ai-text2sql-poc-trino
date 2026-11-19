@@ -34,4 +34,27 @@ if [ -n "${AI_TRINO_SUPERSET_URI:-}" ]; then
   superset set-database-uri -d "${AI_TRINO_DATABASE_NAME:-Vendite via Trino}" -u "${AI_TRINO_SUPERSET_URI}"
 fi
 
+# Esecuzione asincrona in SQL Lab solo se c'e' il worker Celery (deploy.ps1 -Asincrono):
+# senza worker le query asincrone resterebbero in attesa per sempre.
+echo "==> Esecuzione asincrona in SQL Lab: ${SUPERSET_ASINCRONO:-false}"
+python - <<'EOF'
+import os
+
+from superset.app import create_app
+
+app = create_app()
+with app.app_context():
+    from superset.extensions import db
+    from superset.models.core import Database
+
+    attiva = os.environ.get("SUPERSET_ASINCRONO", "false").lower() == "true"
+    nomi = [os.environ.get("AI_DATABASE_NAME", ""), os.environ.get("AI_TRINO_DATABASE_NAME", "")]
+    for nome in [n for n in nomi if n]:
+        rec = db.session.query(Database).filter_by(database_name=nome).one_or_none()
+        if rec is not None:
+            rec.allow_run_async = attiva
+            print(f"    {nome}: asincrona={attiva}")
+    db.session.commit()
+EOF
+
 echo "==> Inizializzazione completata"

@@ -59,15 +59,15 @@
   }
 
   // Motore SQL scelto (PostgreSQL diretto o Trino): ricordato nel browser
-  var motore = 'postgres';
-  try { motore = localStorage.getItem('ai-motore') || 'postgres'; } catch (e) { /* storage non disponibile */ }
+  var motore = 'diretto';
+  try { motore = localStorage.getItem('ai-motore') || 'diretto'; } catch (e) { /* storage non disponibile */ }
 
   async function caricaInfo() {
     if (!info) {
       info = await api('GET', '/ai/api/info?motore=' + encodeURIComponent(motore));
-      motore = info.motore;  // il server torna a postgres se il motore richiesto non c'e'
+      motore = info.motore;  // il server torna al motore diretto se quello richiesto non c'e'
       if ($('selMotore')) $('selMotore').value = motore;
-      if ($('nomeDb')) $('nomeDb').textContent = info.database_nome + ' (' + info.dialetto + ')';
+      if ($('nomeDb')) $('nomeDb').textContent = info.database_nome + ' (' + (info.dialetto_nome || info.dialetto) + ')';
     }
     return info;
   }
@@ -112,6 +112,70 @@
     contenitore.appendChild(t);
   }
 
+  // ------------------------------------------------------------------ voto e registro
+  function mostraVoto(id, idRegistro) {
+    var box = $(id);
+    box.classList.toggle('nascosto', !idRegistro);
+    box.dataset.id = idRegistro || '';
+    box.querySelector('.esito-voto').textContent = '';
+    box.querySelectorAll('button').forEach(function (b) { b.disabled = false; });
+  }
+
+  async function vota(box, voto) {
+    var nota = voto < 0 ? (window.prompt('Cosa non va? (facoltativo: aiuta a migliorare le risposte)') || '') : '';
+    box.querySelectorAll('button').forEach(function (b) { b.disabled = true; });
+    try {
+      await api('POST', '/ai/api/voto', { id: Number(box.dataset.id), voto: voto, nota: nota });
+      box.querySelector('.esito-voto').textContent = 'Grazie, voto registrato.';
+    } catch (e) {
+      box.querySelector('.esito-voto').textContent = 'Voto non registrato: ' + e.message;
+      box.querySelectorAll('button').forEach(function (b) { b.disabled = false; });
+    }
+  }
+
+  async function caricaRegistro() {
+    $('btnRegistro').disabled = true;
+    try {
+      var r = await api('GET', '/ai/api/registro?limite=100');
+      var s = r.riepilogo;
+      $('riepilogoRegistro').textContent = s.totale + ' richieste' + (r.tutti ? ' (tutti gli utenti)' : '') +
+        ' · ok ' + s.ok + ' · avvisi ' + s.avviso + ' · errori ' + s.errore +
+        ' · voti 👍 ' + s.voti_positivi + ' 👎 ' + s.voti_negativi +
+        (s.durata_media_ms ? ' · tempo medio ' + (s.durata_media_ms / 1000).toFixed(1) + ' s' : '');
+      var cont = $('tabRegistro');
+      cont.textContent = '';
+      cont.classList.remove('nascosto');
+      var t = document.createElement('table');
+      var intest = ['Quando', 'Utente', 'Tipo', 'Motore', 'Domanda', 'Esito', 'Righe', 'Tempo', 'Voto'];
+      var th = t.createTHead().insertRow();
+      intest.forEach(function (c) { var x = document.createElement('th'); x.textContent = c; th.appendChild(x); });
+      var tb = t.createTBody();
+      r.righe.forEach(function (x) {
+        var tr = tb.insertRow();
+        function cella(testo, classe, titolo) {
+          var td = tr.insertCell(); td.textContent = testo == null ? '' : String(testo);
+          if (classe) td.className = classe;
+          if (titolo) td.title = titolo;
+        }
+        cella(x.quando ? new Date(x.quando).toLocaleString('it-IT') : '');
+        cella(x.utente);
+        cella(x.tipo);
+        cella(x.motore);
+        cella(x.domanda || (x.sql || '').slice(0, 120), 'lungo', x.sql || '');
+        cella(x.esito, 'esito-' + x.esito, x.errore || '');
+        cella(x.righe, 'num');
+        cella(x.durata_ms != null ? (x.durata_ms / 1000).toFixed(1) + ' s' : '', 'num');
+        cella(x.voto > 0 ? '👍' : (x.voto < 0 ? '👎' : ''), '', x.nota || '');
+      });
+      cont.appendChild(t);
+      $('btnRegistro').textContent = 'Aggiorna il registro';
+    } catch (e) {
+      $('riepilogoRegistro').textContent = 'Registro non disponibile: ' + e.message;
+    } finally {
+      $('btnRegistro').disabled = false;
+    }
+  }
+
   function cronometro(el) {
     var inizio = Date.now();
     var h = setInterval(function () {
@@ -134,11 +198,13 @@
     if (!domanda) { messaggio($('msgSql'), 'Scrivi una domanda.', 'err'); return; }
     $('btnSql').disabled = true;
     nascondi($('msgSql'));
+    mostraVoto('votoSql', null);
     var fine = cronometro($('tempoSql'));
     messaggio($('msgSql'), 'Il modello sta scrivendo la query (la prima richiesta puo\' richiedere piu\' tempo mentre il modello viene caricato)...');
     try {
       await caricaInfo();
       var r = await api('POST', '/ai/api/sql', { domanda: domanda, esegui: true, motore: motore });
+      mostraVoto('votoSql', r.registro_id);
       $('bloccoSql').classList.remove('nascosto');
       $('sql').value = r.sql || '';
       if (r.errore_sql) {
@@ -162,6 +228,7 @@
     $('btnEsegui').disabled = true;
     try {
       var r = await api('POST', '/ai/api/esegui', { sql: $('sql').value, motore: motore });
+      mostraVoto('votoSql', r.registro_id);
       messaggio($('msgSql'), r.risultato.righe.length + (r.risultato.troncato ? '+' : '') + ' righe in ' + r.risultato.ms + ' ms', 'ok');
       tabella($('tabella'), r.risultato);
     } catch (e) {
@@ -277,6 +344,7 @@
     $('btnDash').disabled = true;
     $('log').textContent = '';
     nascondi($('msgDash'));
+    mostraVoto('votoDash', null);
     var fine = cronometro($('tempoDash'));
     try {
       passo('Il modello progetta la dashboard e verifica le query...');
@@ -304,7 +372,8 @@
         var li = passo('Grafico "' + g.titolo + '" (' + g.tipo + ')...');
         // Dataset: stesso motore + stesso SQL = stesso nome ("ai_<hash>_...") = riutilizzato
         // (per PostgreSQL il codice resta quello di prima, cosi' i dataset esistenti si riusano)
-        var prefisso = 'ai_' + hash((piano.motore === 'postgres' ? '' : piano.motore + '|') + g.sql.trim()) + '_';
+        var diretto = piano.motore === 'diretto' || piano.motore === 'postgres';
+        var prefisso = 'ai_' + hash((diretto ? '' : piano.motore + '|') + g.sql.trim()) + '_';
         var ds = (await cerca('/api/v1/dataset/', [['table_name', 'ct', prefisso]], ['id', 'table_name']))[0];
         var riusoDs = !!ds;
         if (!ds) {
@@ -351,6 +420,7 @@
       passo('Layout salvato.');
       var url = '/superset/dashboard/' + dash.id + '/';
       messaggio($('msgDash'), 'Dashboard pronta. Si apre in una nuova scheda: ' + url, 'ok');
+      mostraVoto('votoDash', piano.registro_id);
       window.open(url, '_blank');
     } catch (e) {
       passo('Errore: ' + e.message, true);
@@ -428,6 +498,12 @@
   $('btnDash').addEventListener('click', creaDashboard);
   $('btnPulisci').addEventListener('click', pulisci);
   $('btnStato').addEventListener('click', verificaStato);
+  $('btnRegistro').addEventListener('click', caricaRegistro);
+  ['votoSql', 'votoDash'].forEach(function (id) {
+    $(id).querySelectorAll('button').forEach(function (b) {
+      b.addEventListener('click', function () { vota($(id), Number(b.dataset.voto)); });
+    });
+  });
   $('domanda').addEventListener('keydown', function (e) { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) generaSql(); });
   $('richiesta').addEventListener('keydown', function (e) { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) creaDashboard(); });
   document.querySelectorAll('#esempiSql button').forEach(function (b) {

@@ -1,0 +1,52 @@
+# Redis: cache di Superset (dati dei grafici, metadati, filtri, stato di Explore) e coda del
+# worker Celery (facoltativo: deploy.ps1 -Asincrono).
+# Solo in memoria, senza salvataggi su disco: un riavvio svuota la cache, nessun dato si perde.
+# volatile-lru: quando la memoria finisce elimina solo chiavi con scadenza (la cache), mai le
+# code di Celery, che non scadono.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: superset-ai
+  labels:
+    app: redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      enableServiceLinks: false
+      containers:
+        - name: redis
+          image: redis:7.4-alpine
+          args: ["--save", "", "--appendonly", "no", "--maxmemory", "200mb", "--maxmemory-policy", "volatile-lru"]
+          ports:
+            - name: redis
+              containerPort: 6379
+          readinessProbe:
+            exec: { command: ["redis-cli", "ping"] }
+            periodSeconds: 10
+          livenessProbe:
+            exec: { command: ["redis-cli", "ping"] }
+            periodSeconds: 30
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits: { memory: 256Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: superset-ai
+spec:
+  selector:
+    app: redis
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: 6379

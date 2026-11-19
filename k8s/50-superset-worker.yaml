@@ -1,0 +1,56 @@
+# Worker Celery di Superset (facoltativo: deploy.ps1 -Asincrono).
+# Esegue in sottofondo le query di SQL Lab sui database con "esecuzione asincrona" attiva
+# (la imposta init-superset.sh quando SUPERSET_ASINCRONO=true): la pagina non resta bloccata
+# sulle query lunghe e le si puo' interrompere. Usa Redis come coda e per i risultati.
+# Le richieste all'AI (pagina AI, pannello di SQL Lab) restano sincrone e non passano di qui.
+# Stessa immagine e stesse variabili del Deployment "superset" (k8s/20-superset.yaml).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: superset-worker
+  namespace: superset-ai
+  labels:
+    app: superset-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: superset-worker
+  template:
+    metadata:
+      labels:
+        app: superset-worker
+    spec:
+      enableServiceLinks: false
+      containers:
+        - name: worker
+          image: superset-ai:0.1
+          imagePullPolicy: IfNotPresent
+          command: ["celery", "--app=superset.tasks.celery_app:app", "worker",
+                    "--pool=prefork", "--concurrency=2", "-O", "fair", "--loglevel=INFO"]
+          envFrom:
+            - configMapRef:
+                name: superset-ai-config
+          env:
+            - name: SUPERSET_SECRET_KEY
+              valueFrom:
+                secretKeyRef: { name: superset-ai-secrets, key: SUPERSET_SECRET_KEY }
+            - name: SUPERSET_DB_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: superset-ai-secrets, key: SUPERSET_DB_PASSWORD }
+            - name: AI_READER_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: superset-ai-secrets, key: AI_READER_PASSWORD }
+            - name: SUPERSET_DATABASE_URI
+              value: postgresql+psycopg2://superset:$(SUPERSET_DB_PASSWORD)@postgres:5432/superset
+            - name: AI_DATA_URI
+              value: postgresql+psycopg2://ai_reader:$(AI_READER_PASSWORD)@postgres:5432/vendite
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "celery --app=superset.tasks.celery_app:app inspect ping -d celery@$HOSTNAME --timeout 20"]
+            initialDelaySeconds: 60
+            periodSeconds: 120
+            timeoutSeconds: 40
+          resources:
+            requests: { cpu: 250m, memory: 512Mi }
+            limits: { memory: 1536Mi }

@@ -16,7 +16,7 @@ Elenco delle prove da fare sulla POC, con i **valori attesi** già calcolati sui
 
 | # | Prova | Come | Atteso | Esito |
 |---|---|---|---|---|
-| 0.1 | Pod attivi | `kubectl get pods -n superset-ai` | `postgres`, `superset` e `trino` in stato `Running`, `1/1` (`trino` manca se il deploy è stato fatto con `-SenzaTrino` o con meno di 6 GB) | |
+| 0.1 | Pod attivi | `kubectl get pods -n superset-ai` | `postgres`, `redis`, `superset` e `trino` in stato `Running`, `1/1` (con `deploy.ps1 -Asincrono` anche `superset-worker`) (`trino` manca se il deploy è stato fatto con `-SenzaTrino` o con meno di 6 GB) | |
 | 0.2 | Ollama raggiungibile dai pod | `.\scripts\test-ollama.ps1` | elenco modelli con `qwen3.6:35b` | |
 | 0.3 | Login | `.\scripts\forward.ps1`, poi `http://localhost:8088`, utente `admin` (password: `.\scripts\password.ps1`) | home di Superset | |
 | 0.4 | Menu e pulsanti | dopo il login | menu **AI > AI Assistant**; pulsante **AI Assistant** in basso a destra | |
@@ -184,6 +184,20 @@ Per ogni prova ❌ o ⚠️ raccogli:
    kubectl logs -n superset-ai deploy/trino --since=30m | Select-String "ERROR|WARN"
    ```
 
+## 12. Registro, cache, worker e prove automatiche
+
+| # | Prova | Atteso | Esito |
+|---|---|---|---|
+| 12.1 | Pagina AI, una domanda qualsiasi | sotto la risposta compare *"La risposta e' corretta?"* con 👍 / 👎; con 👎 si apre la richiesta di una nota, poi *"Grazie, voto registrato"* | |
+| 12.2 | In fondo alla pagina: **Mostra il registro** | una riga per richiesta (domanda, SQL rieseguita, dashboard) con utente, motore, esito, righe, tempo e voto; il voto di 12.1 compare con la nota al passaggio del mouse | |
+| 12.3 | **Scarica CSV** | file `registro-ai.csv` che Excel apre con le colonne separate e gli accenti corretti | |
+| 12.4 | **Verifica connessione** | "Database dei dati raggiungibile (PostgreSQL (diretto))"; accanto al nome del database compare il dialetto | |
+| 12.5 | Apri due volte la stessa dashboard, poi `kubectl exec -n superset-ai deploy/redis -- redis-cli info keyspace` | la seconda apertura e' piu' veloce; compaiono chiavi in `db1` e `db2` (cache di Superset) | |
+| 12.6 | `.\scripts\deploy.ps1 -Asincrono -SkipBuild`, poi in SQL Lab una query su *Vendite (POC)* | pod `superset-worker` attivo; la query passa da "in esecuzione" ai risultati; `kubectl logs -n superset-ai deploy/superset-worker` mostra `succeeded` | |
+| 12.7 | `.\scripts\deploy.ps1 -SkipBuild` (senza `-Asincrono`) | il worker viene rimosso e SQL Lab torna sincrono, senza query bloccate in attesa | |
+| 12.8 | `.\scripts\prove.ps1 -Solo 1.*` | una riga per prova con ✅/❌/⚠️ e il motivo; report in `prove-risultati\<data-ora>.md` | |
+| 12.9 | `.\scripts\prove.ps1` (tutte, 10-15 minuti) | riepilogo per motore con la percentuale di prove superate; dalla seconda esecuzione completa, l'elenco delle prove migliorate o peggiorate | |
+
 ## Appendice: verificare un valore a mano
 
 In **SQL Lab**, database *Vendite (POC)*, schema `public`:
@@ -217,5 +231,8 @@ FROM ordini;
 | 18/11/2026 | **Codice indipendente dal database**: nessun nome di tabella nel codice. Le regole di business sulle vendite sono in `config\vendite\istruzioni.md`, gli esempi della pagina in `config\vendite\esempi-*.txt`. Il controllo delle JOIN ora vale per qualsiasi schema: verifica sul database se la colonna di collegamento è unica e segnala le JOIN che moltiplicano le righe. Il vecchio controllo su `COUNT(*)` nelle viste delle vendite è stato tolto: lo sostituiscono le viste e le istruzioni | 0.4 (pulsanti di esempio presenti), 1.2, 1.6, 4.6, 7.1, 10.2 |
 | 18/11/2026 | Aggiornando una dashboard esistente, i grafici della versione precedente restavano collegati e Superset li mostrava in fondo alla pagina (visto nella 7.5: 8 grafici, i 4 vecchi a 0 o vuoti). Ora vengono staccati e il registro lo dice | 7.5, 7.8 |
 | 18/11/2026 | I file JavaScript dell'estensione avevano un numero di versione scritto a mano (`?v=5`): dopo un deploy il browser poteva continuare a usare la copia vecchia. Ora la versione è un'impronta del contenuto e cambia da sola | dopo il deploy: 7.5 (righe "tolto dalla dashboard" nel registro) |
+| 19/11/2026 | **Indipendenza dal motore**: lo schema si legge con l'Inspector di SQLAlchemy, il dialetto si ricava dalla connessione, regole ed esempi per ogni motore (`dialetti.py`). Il motore principale si chiama ora "diretto" (il vecchio nome "postgres" resta valido) | 0.5, 1.x e 10.x (nessuna differenza attesa) |
+| 19/11/2026 | **Registro delle richieste** con voto (tabella `ai_registro` nei metadati di Superset), **Redis** come cache, **worker Celery** facoltativo, **prove automatiche** (`scripts\prove.ps1`, `config\vendite\prove.yaml`) | sezione 12 |
+| 19/11/2026 | `config\vendite\database.env`: `AI_METADATI_DA=diretto`, cosi' con Trino lo schema continua a venire da PostgreSQL (viste e commenti) | 10.x |
 
 Per applicarle: `.\scripts\aggiorna-db.ps1` (viste) e `.\scripts\deploy.ps1` (nuova immagine con prompt e controlli; carica anche `config\vendite`).
