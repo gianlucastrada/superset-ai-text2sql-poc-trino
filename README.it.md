@@ -86,7 +86,7 @@ Le dashboard al volo usano 18 tipi di grafico di Superset, raggruppati per **for
 | **Osservazioni** (una riga per osservazione, non aggregata) | `box_plot` (mediana, quartili, media, minimo e massimo), istogramma (`histogram`) | Box Plot, Histogram |
 | **Dettaglio** | tabella (`table`) | Table |
 
-Esempio: *"Box plot dell'importo degli ordini per canale, con media e mediana"* produce un box plot per canale calcolato sui singoli ordini (i baffi arrivano all'ordine più alto e a quello più basso) e, se richiesti, KPI con la media. Ogni grafico creato si può poi modificare in Superset come un grafico normale.
+Esempio: *"Box plot dell'importo degli ordini per canale, con media e mediana"* produce un box plot per canale calcolato sui singoli ordini (i baffi arrivano all'ordine più alto e a quello più basso) e, se richiesti, KPI con la media. Se la query restituisce solo categoria e valore, senza un identificativo per riga, l'estensione numera le righe da sola (colonna `ai_osservazione`), in ogni dialetto SQL. Ogni grafico creato si può poi modificare in Superset come un grafico normale.
 
 ## Prove automatiche
 

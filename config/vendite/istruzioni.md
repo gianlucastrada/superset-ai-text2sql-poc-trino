@@ -3,3 +3,4 @@
 - Ordini annullati (quanti, percentuale, per canale, per mese): vista v_ordini_tutti, che contiene tutti gli stati.
 - Fatturato, margini, quantita', clienti, prodotti, categorie, canali e aree: vista v_vendite, una riga per riga d'ordine. Per contare gli ordini su v_vendite usa COUNT(DISTINCT ordine_id).
 - "Regione" e' la regione italiana (colonna regione, es. Lombardia); "area" e' la macro-area (Nord, Centro, Sud e Isole).
+- Importo di un ordine = colonna importo di v_ordini (totale dell'ordine, una riga per ordine). Per medie, mediane, distribuzioni o box plot sugli ordini usa v_ordini, non v_vendite: v_vendite ha una riga per riga d'ordine e darebbe l'importo delle singole righe.

@@ -112,6 +112,7 @@ def _prompt_dashboard(schema: str, max_grafici: int, dialetto: str) -> str:
 {grafici.descrizione_prompt(esempio_mese(dialetto))}
 
 Metti prima 1-3 KPI ("big_number", "gauge" o "big_number_trend") con i valori principali, poi gli altri. Titoli brevi in italiano.
+Non aggiungere filtri di periodo (ultimo mese, ultimo semestre...) se la richiesta non ne indica uno: usa tutti i dati disponibili.
 I grafici della stessa dashboard devono essere COERENTI tra loro: stessa definizione di ogni misura e stessi filtri (ad esempio, se una misura esclude certe righe, le escludono TUTTI i grafici su quella misura; la somma dell'andamento mensile deve coincidere con il KPI del totale nello stesso periodo).
 
 {_regole_sql(dialetto)}

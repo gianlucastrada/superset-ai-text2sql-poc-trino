@@ -62,7 +62,8 @@ _FORME = {
     "osservazioni": (
         "NON aggregata: UNA RIGA PER OSSERVAZIONE (es. una per ordine, per giorno o per cliente), al "
         "massimo 10000; y = valore numerico dell'osservazione, x = colonna che identifica l'osservazione "
-        "(es. l'id dell'ordine), serie = categoria (testo) per avere un box per categoria oppure \"\"."
+        "(es. l'id dell'ordine) oppure \"\" se non c'e', serie = categoria (testo) per avere un box per "
+        "categoria oppure \"\"."
     ),
     "dettaglio": "piu' colonne, al massimo 50 righe; x = \"\" e y = \"\".",
 }
@@ -183,18 +184,30 @@ def adatta(tipo: str, g: dict[str, Any], colonne: list[str], tipi: list[str], ri
 
     if forma == "osservazioni":
         y = _valore(colonne, tipi, vy)
-        serie = _col(colonne, tipi, vs, {"testo"}, {y}) if vs else ""
-        altre = [c for c in colonne if c not in (y, serie)]
-        x = vx if vx in altre else next((c for c in altre if _ID.search(c)), altre[0] if altre else "")
+        if not y or n < 5:
+            campi["y"] = y
+            return campi, (f"Per un {nome} serve una riga per osservazione (almeno 5) con un valore numerico, "
+                           f"ma la query restituisce {n} righe e {len(colonne)} colonne.")
+
+        def distinti(c: str) -> int:
+            return len({r[colonne.index(c)] for r in righe})
+
+        serie = vs if vs in colonne and vs != y and tipi[colonne.index(vs)] == "testo" else ""
+        # identificativo: la colonna indicata o una dal nome adatto, purche' abbia un valore diverso
+        # per riga; altrimenti nessuno e il box plot numera le righe (views.py)
+        candidati = ([vx] if vx in colonne else []) + [c for c in colonne if _ID.search(c)]
+        x = next((c for c in candidati if c not in (y, serie) and distinti(c) == n), "")
+        if not serie:
+            # una colonna di testo con valori ripetuti e' una categoria: un box per categoria
+            serie = next(
+                (c for c in ([vx] if vx in colonne else []) + colonne
+                 if c not in (x, y) and tipi[colonne.index(c)] == "testo" and distinti(c) < n),
+                "",
+            )
         campi.update(x=x, y=y, serie=serie)
-        if not y or n < 5 or (tipo == "box_plot" and not x):
-            return campi, (f"Per un {nome} serve una riga per osservazione (almeno 5) con una colonna che la "
-                           f"identifica e un valore numerico, ma la query restituisce {n} righe e {len(colonne)} colonne.")
-        if serie:
-            categorie = {r[colonne.index(serie)] for r in righe}
-            if len(categorie) == n:
-                return campi, (f"La query restituisce una sola riga per categoria: e' gia' aggregata. Per un {nome} "
-                               "servono le singole osservazioni (es. una riga per ordine) con la loro categoria.")
+        if serie and distinti(serie) == n:
+            return campi, (f"La query restituisce una sola riga per categoria: e' gia' aggregata. Per un {nome} "
+                           "servono le singole osservazioni (es. una riga per ordine) con la loro categoria.")
         return campi, None
 
     # tempo, categorie, matrice

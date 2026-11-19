@@ -224,6 +224,17 @@ def _verifica_grafico(
         return {"titolo": titolo, "tipo": tipo, "errore": "La query non restituisce righe.", "sql": sql}
     if errore:  # dopo le correzioni la forma non va ancora: KPI o tabella
         tipo, campi = grafici.ripiego(colonne, tipi, n)
+    if tipo == "box_plot" and not campi.get("x"):
+        # Solo categoria e valore: Superset vuole anche un identificativo per osservazione,
+        # quindi le righe vengono numerate (colonna ai_osservazione) invece di chiederlo al modello
+        try:
+            numerata = valida(dati.numera_osservazioni(sql, dial, campi["y"]), dial)
+            prova = dati.esegui_query(numerata, limite=5, motore=motore)
+            sql, colonne, tipi = numerata, prova["colonne"], prova["tipi"]
+            campi["x"] = "ai_osservazione"
+        except Exception as ex:  # noqa: BLE001
+            errore = f"numerazione delle osservazioni non riuscita: {ex}"
+            tipo, campi = grafici.ripiego(colonne, tipi, n)
     risultato = {
         "titolo": titolo,
         "tipo": tipo,
@@ -418,13 +429,15 @@ def api_dashboard():
     validi = [g for g in grafici if not g.get("errore")]
     scartati = [g for g in grafici if g.get("errore")]
     elenco_sql = "\n\n".join(f"-- {g['titolo']} ({g['tipo']})\n{g['sql']}" for g in grafici)
-    problemi = "; ".join(f"{g['titolo']}: {g['errore']}" for g in scartati)
+    problemi = "; ".join(
+        [f"{g['titolo']}: {g['errore']}" for g in scartati] + [f"{g['titolo']}: {g['nota']}" for g in validi if g.get("nota")]
+    )
     id_riga = _registra(
         "dashboard", motore, inizio,
         domanda=richiesta,
         sql=elenco_sql,
         spiegazione=piano.get("titolo"),
-        esito="errore" if not validi else ("avviso" if scartati else "ok"),
+        esito="errore" if not validi else ("avviso" if problemi else "ok"),
         errore=problemi or None,
         righe=len(validi),
     )

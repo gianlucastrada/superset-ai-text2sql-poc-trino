@@ -20,6 +20,7 @@ import datetime as dt
 import decimal
 import fnmatch
 import logging
+import re
 import threading
 import time
 from typing import Any
@@ -223,6 +224,23 @@ def _avvolgi(sql: str, limite: int, dial: str) -> str:
     except Exception:  # noqa: BLE001
         pass
     return sql  # senza involucro: il limite lo applica comunque la lettura (fetchmany)
+
+
+def numera_osservazioni(sql: str, dial: str, ordina_per: str) -> str:
+    """Aggiunge alla query una colonna "ai_osservazione" con il numero di riga (1, 2, 3...),
+    ordinando per `ordina_per` (alcuni motori, come Spark e Hive, vogliono un ordinamento).
+    Serve ai grafici che distribuiscono una misura sulle singole osservazioni (box plot) quando
+    la query restituisce solo categoria e valore, senza un identificativo per riga."""
+    modello = _traduci(
+        f"SELECT ROW_NUMBER() OVER (ORDER BY ai_q.{_qi(ordina_per)}) AS ai_osservazione, ai_q.* "
+        "FROM ai_segnaposto AS ai_q",
+        dial,
+    )
+    # il nome della tabella segnaposto (anche tra [ ], " " o ` `) diventa la query tra parentesi
+    risultato, sostituzioni = re.subn(r'[\[\"`]?ai_segnaposto[\]\"`]?', lambda _: "(\n" + sql + "\n)", modello, count=1)
+    if not sostituzioni:
+        raise ValueError("Numerazione delle righe non disponibile per questo motore.")
+    return risultato
 
 
 def esegui_query(sql: str, limite: int | None = None, motore: str = "diretto") -> dict[str, Any]:
